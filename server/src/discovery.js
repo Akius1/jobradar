@@ -13,7 +13,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DATA_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
+// Shares DATA_DIR with the job store: on a deployment both must live on the
+// mounted volume, or the registry falls back to its seed list on every restart
+// and the compounding effect is lost.
+const DATA_DIR =
+  process.env.DATA_DIR ||
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
 const FILE = path.join(DATA_DIR, "companies.json");
 
 // Token patterns for each ATS we can actually poll.

@@ -3,7 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DATA_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
+// Configurable so a deployment can point it at a mounted volume. Without a
+// persistent path the 30-day archive resets on every restart.
+const DATA_DIR =
+  process.env.DATA_DIR ||
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "jobs.json");
 
 // Retain a month; the UI narrows to 2h/6h/12h/24h/2d/1w/1m at query time.

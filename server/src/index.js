@@ -12,6 +12,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Fly polls this. It must answer immediately even while the first sweep is
+// still running, otherwise the machine is killed mid-boot and never finishes.
+app.get("/health", (_req, res) => {
+  const state = getState();
+  res.json({
+    ok: true,
+    jobs: state.jobs.length,
+    lastRefresh: state.lastRefresh,
+    uptime: Math.round(process.uptime()),
+  });
+});
+
 // ---- API ----
 
 // Selectable freshness windows, in hours.

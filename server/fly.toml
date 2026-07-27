@@ -1,0 +1,43 @@
+# Fly.io configuration for the JobRadar API.
+# App names share a single global namespace across all Fly users, so "jobradar-api"
+# was already taken by someone else. Keep this suffixed to stay unique.
+app = "jobradar-akius1"
+primary_region = "lhr"          # London: closest Fly region to Lagos with full capacity
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "4000"
+  # Must match the volume mount below, or the archive and the discovered
+  # company registry are written to the container filesystem and lost on deploy.
+  DATA_DIR = "/data"
+
+# Persistent storage. Without this the 30-day archive and the auto-discovered
+# company list reset every restart, and discovery stops compounding.
+[[mounts]]
+  source = "jobradar_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+
+  # Both must stay as they are. The sweep runs on a 30-minute cron, so a machine
+  # that suspends when idle would simply never refresh; you would only ever see
+  # data from whenever you last opened the page.
+  auto_stop_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"        # a boot sweep takes ~90s, but /health answers instantly
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # 512MB is enough now that descriptions are trimmed at the adapters. Raise to
+  # 1024 if sweeps start dying without a stack trace, which is how OOM presents.
+  memory = "512mb"
