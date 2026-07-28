@@ -77,8 +77,13 @@ export default function JobDetail({ id, onBack, onOpen }) {
         </p>
 
         <div className="detail-actions">
-          <a className="apply-btn" href={job.url} target="_blank" rel="noreferrer">
-            Apply on {job.source} →
+          <a
+            className={`apply-btn ${data.paywalled ? "apply-btn-muted" : ""}`}
+            href={job.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {data.paywalled ? `View on ${job.source}` : `Apply on ${job.source}`} →
           </a>
           <span className="apply-note">
             {prep.approach.urgency === "high"
@@ -89,6 +94,38 @@ export default function JobDetail({ id, onBack, onOpen }) {
           </span>
         </div>
       </header>
+
+      {/* ---- Paywall bypass via the employer, not around the paywall ---- */}
+      {data.paywalled && data.applyRoutes?.length > 0 && (
+        <Panel label="Apply without paying" tone="crimson">
+          <p className="panel-lead">
+            {job.source} charges a subscription to reach its apply button. You do
+            not need it.
+          </p>
+          <p className="signals">
+            This employer paid {job.source} to advertise the role, so the same
+            opening is on their own site with a free application form. Applying
+            direct is better regardless: no middleman, and your application lands
+            in their pipeline rather than an aggregator's.
+          </p>
+          <div className="links">
+            {data.applyRoutes.map((r) => (
+              <a
+                key={r.url}
+                className={`link-card ${r.kind === "employer-board" ? "link-card-best" : ""}`}
+                href={r.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="link-label">
+                  {r.label} →{r.kind === "employer-board" && <b className="best-tag">best</b>}
+                </span>
+                <span className="link-hint">{r.hint}</span>
+              </a>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       {/* ---- Why this verdict ---- */}
       <Panel label="Eligibility read" tone={v.tone}>

@@ -307,6 +307,9 @@ function JobList({ onOpen, filters }) {
                   {job.relocation && (
                     <span className="pill pill-visa">relocation / visa</span>
                   )}
+                  {job.paywalled && (
+                    <span className="pill pill-paywall">paid to apply</span>
+                  )}
                 </div>
 
                 {job.tags?.length > 0 && (

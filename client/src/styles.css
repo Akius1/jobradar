@@ -804,6 +804,38 @@ body::after {
 .link-label { color: var(--text); font-size: 0.85rem; font-weight: 500; }
 .link-hint { color: var(--text-3); font-size: 0.74rem; line-height: 1.45; }
 
+.pill-paywall {
+  color: var(--crimson);
+  border-color: rgba(196, 99, 112, 0.34);
+  background: rgba(196, 99, 112, 0.08);
+}
+
+.apply-btn-muted {
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--line-hi);
+  box-shadow: none;
+}
+.apply-btn-muted:hover { color: var(--text); box-shadow: none; }
+
+.link-card-best {
+  border-color: rgba(92, 186, 141, 0.42);
+  background: rgba(92, 186, 141, 0.07);
+}
+.link-card-best .link-label { color: var(--jade); }
+
+.best-tag {
+  margin-left: 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--jade);
+  border: 1px solid rgba(92, 186, 141, 0.4);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
 /* posting body */
 
 .description {

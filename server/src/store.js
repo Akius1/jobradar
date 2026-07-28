@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { friction } from "./apply.js";
 
 // Configurable so a deployment can point it at a mounted volume. Without a
 // persistent path the 30-day archive resets on every restart.
@@ -55,7 +56,15 @@ export function getJobs() {
   return state.jobs.filter((j) => j.postedAt >= cutoff);
 }
 
-/** Merge a fresh batch: dedupe by id and by (company+title), drop stale jobs. */
+/**
+ * Merge a fresh batch: dedupe by (company+title), drop stale jobs.
+ *
+ * When the same role arrives from several sources we keep the one that is
+ * cheapest to apply through. Roughly half of the WeWorkRemotely postings are
+ * from companies that also list on a free source, and WWR charges a
+ * subscription to reach its apply button, so preferring the low-friction copy
+ * silently removes most of the paywall problem.
+ */
 export function mergeJobs(incoming, sourceStatus) {
   const cutoff = Date.now() - MAX_AGE_MS;
   const byKey = new Map();
@@ -65,19 +74,29 @@ export function mergeJobs(incoming, sourceStatus) {
     if (j.postedAt >= cutoff) byKey.set(keyOf(j), j);
   }
   let added = 0;
+  let upgraded = 0;
   for (const j of incoming) {
     if (j.postedAt < cutoff) continue;
     const key = keyOf(j);
     const existing = byKey.get(key);
-    // Keep the earliest sighting so "posted x ago" stays honest.
-    if (!existing || j.postedAt < existing.postedAt) {
-      if (!existing) added++;
-      byKey.set(key, existing ? { ...j, postedAt: existing.postedAt } : j);
+
+    if (!existing) {
+      byKey.set(key, j);
+      added++;
+      continue;
     }
+
+    // Always retain the earliest sighting so "posted x ago" stays honest,
+    // regardless of which copy wins on friction.
+    const postedAt = Math.min(existing.postedAt, j.postedAt);
+    const better = friction(j.source) < friction(existing.source);
+    if (better) upgraded++;
+
+    byKey.set(key, better ? { ...j, postedAt } : { ...existing, postedAt });
   }
   state.jobs = [...byKey.values()];
   state.lastRefresh = Date.now();
   state.sourceStatus = sourceStatus;
   persist();
-  return { added, total: state.jobs.length };
+  return { added, upgraded, total: state.jobs.length };
 }

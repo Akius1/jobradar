@@ -5,7 +5,8 @@ import { getState, getJobs } from "./store.js";
 import { refreshAll } from "./fetcher.js";
 import { ROLE_LABELS } from "./filter.js";
 import { buildPrep } from "./prep.js";
-import { discoveryStats } from "./discovery.js";
+import { discoveryStats, findBoardFor } from "./discovery.js";
+import { isPaywalled, friction, companyKey, resolveApplyRoutes } from "./apply.js";
 
 const PORT = process.env.PORT || 4000;
 const app = express();
@@ -87,7 +88,10 @@ app.get("/api/jobs", (req, res) => {
 
   jobs.sort((a, b) => b.postedAt - a.postedAt);
   // Descriptions are only needed on the detail screen, keep the list light.
-  const list = jobs.map(({ description, ...rest }) => rest);
+  const list = jobs.map(({ description, ...rest }) => ({
+    ...rest,
+    paywalled: isPaywalled(rest.source),
+  }));
   res.json({ jobs: list, meta: buildMeta(inWindow, within) });
 });
 
@@ -107,7 +111,25 @@ app.get("/api/job", (req, res) => {
     .sort((a, b) => b.postedAt - a.postedAt)
     .slice(0, 4);
 
-  res.json({ job, prep: buildPrep(job), related });
+  // If this role sits behind a paywall, work out how to reach the employer
+  // without paying: their own ATS board, or a cheaper source carrying the
+  // same company.
+  const paywalled = isPaywalled(job.source);
+  let applyRoutes = null;
+  if (paywalled) {
+    const freeAlt = jobs
+      .filter(
+        (j) =>
+          j.id !== job.id &&
+          companyKey(j.company) === companyKey(job.company) &&
+          friction(j.source) < friction(job.source)
+      )
+      .sort((a, b) => friction(a.source) - friction(b.source))[0];
+
+    applyRoutes = resolveApplyRoutes(job, findBoardFor(job.company), freeAlt);
+  }
+
+  res.json({ job, prep: buildPrep(job), related, paywalled, applyRoutes });
 });
 
 app.get("/api/meta", (req, res) => res.json(buildMeta(null, req.query.within)));

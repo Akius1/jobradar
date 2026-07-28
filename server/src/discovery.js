@@ -98,6 +98,25 @@ export function tokensFor(ats, seed = []) {
   return merged.slice(0, CAPS[ats] || 100);
 }
 
+/**
+ * Find a discovered board whose token matches a company name, so a paywalled
+ * posting can be redirected to that employer's own free application form.
+ * Compares on alphanumerics only: "Lemon.io" and "lemonio" are the same board.
+ */
+export function findBoardFor(companyName = "") {
+  const key = String(companyName).toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (key.length < 3) return null;
+
+  for (const ats of ["greenhouse", "lever", "ashby", "recruitee", "workable"]) {
+    for (const token of registry[ats] || []) {
+      if (token.toLowerCase().replace(/[^a-z0-9]/g, "") === key) {
+        return { ats, token };
+      }
+    }
+  }
+  return null;
+}
+
 /** Registry sizes, surfaced in /api/meta so growth is visible. */
 export function discoveryStats() {
   return {
