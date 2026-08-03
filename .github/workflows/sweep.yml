@@ -1,0 +1,68 @@
+name: Sweep job sources
+
+# The sweep is the only thing that needed an always-on server. Running it here
+# means no host to pay for and nothing that can be suspended. Public repos get
+# unlimited Actions minutes, so a 30-minute cadence costs nothing.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: # lets you trigger a sweep by hand from the Actions tab
+
+# Only one sweep at a time. Runs overlap otherwise, and two jobs force-pushing
+# the same branch would race.
+concurrency:
+  group: sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # needed to push the data branch
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci --omit=dev
+
+      # Carry the previous sweep's data forward so the 30-day archive and the
+      # discovered company registry keep accumulating instead of starting empty
+      # every run. This is the equivalent of the volume we had on Fly.
+      - name: Restore previous data
+        run: |
+          mkdir -p server/data
+          if git fetch origin data --depth=1 2>/dev/null; then
+            git show origin/data:jobs.json > server/data/jobs.json 2>/dev/null || true
+            git show origin/data:companies.json > server/data/companies.json 2>/dev/null || true
+            echo "Restored $(du -h server/data/jobs.json 2>/dev/null | cut -f1) of previous data"
+          else
+            echo "No data branch yet, starting fresh"
+          fi
+
+      - name: Run sweep
+        working-directory: server
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }} # optional, enables JSearch
+        run: node src/sweep.js
+
+      # Force-push a single commit rather than appending history. jobs.json is
+      # around 4MB, so 48 sweeps a day would otherwise add ~190MB of git objects
+      # daily and the clone would become unusable within weeks.
+      - name: Publish data
+        run: |
+          cd server/data
+          git init -q
+          git config user.name "jobradar-bot"
+          git config user.email "actions@github.com"
+          git checkout -q -b data
+          git add jobs.json companies.json list.json
+          git commit -q -m "data: sweep $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data
+          echo "Published to the data branch"

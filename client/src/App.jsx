@@ -263,7 +263,14 @@ function JobList({ onOpen, filters }) {
 
       <main className="list">
         {loading && <Empty>Sweeping the radar…</Empty>}
-        {error && <Empty>{error}. Is the server running on port 4000?</Empty>}
+        {error && (
+          <Empty>
+            {error}.{" "}
+            {import.meta.env.DEV
+              ? "Is the dev server running on port 4000?"
+              : "The job data may still be publishing. Try again in a minute."}
+          </Empty>
+        )}
         {!loading && !error && jobs.length === 0 && (
           <Empty>
             Nothing matches these filters. Widen the time window, or add{" "}

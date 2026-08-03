@@ -112,13 +112,19 @@ export default function JobDetail({ id, onBack, onOpen }) {
             {data.applyRoutes.map((r) => (
               <a
                 key={r.url}
-                className={`link-card ${r.kind === "employer-board" ? "link-card-best" : ""}`}
+                className={`link-card ${
+                  r.kind === "exact-role" || r.kind === "employer-board"
+                    ? "link-card-best"
+                    : ""
+                }`}
                 href={r.url}
                 target="_blank"
                 rel="noreferrer"
               >
                 <span className="link-label">
-                  {r.label} →{r.kind === "employer-board" && <b className="best-tag">best</b>}
+                  {r.label} →
+                  {r.kind === "exact-role" && <b className="best-tag">this role</b>}
+                  {r.kind === "employer-board" && <b className="best-tag">best</b>}
                 </span>
                 <span className="link-hint">{r.hint}</span>
               </a>

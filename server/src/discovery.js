@@ -104,12 +104,24 @@ export function tokensFor(ats, seed = []) {
  * Compares on alphanumerics only: "Lemon.io" and "lemonio" are the same board.
  */
 export function findBoardFor(companyName = "") {
+  return findBoardIn(registry, companyName);
+}
+
+/**
+ * Same match against a registry supplied by the caller.
+ *
+ * The serverless functions have no local data directory, so they load the
+ * registry over the network and pass it in. Without this the file-backed
+ * lookup silently returns nothing there and every employer-board route
+ * disappears in production.
+ */
+export function findBoardIn(reg, companyName = "") {
   const key = String(companyName).toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (key.length < 3) return null;
+  if (key.length < 3 || !reg) return null;
 
   for (const ats of ["greenhouse", "lever", "ashby", "recruitee", "workable"]) {
-    for (const token of registry[ats] || []) {
-      if (token.toLowerCase().replace(/[^a-z0-9]/g, "") === key) {
+    for (const token of reg[ats] || []) {
+      if (String(token).toLowerCase().replace(/[^a-z0-9]/g, "") === key) {
         return { ats, token };
       }
     }

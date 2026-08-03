@@ -1,141 +1,92 @@
 # Deploying JobRadar
 
-Server on Fly.io, client on Vercel. **Deploy the server first**, because the
-client config needs its URL.
+Runs entirely on free tiers. No card, nothing that can be suspended for billing.
 
----
+## How it fits together
 
-## 1. Server (Fly.io)
+JobRadar barely needs a server. It sweeps job boards every 30 minutes and then
+serves mostly-static JSON, which is a scheduled job rather than a web service.
+That mismatch is why paid hosting felt wasteful and why most free tiers fit
+badly: they sleep on inactivity, which silently kills the cron and leaves the
+board frozen at whenever you last opened it.
 
-### Install flyctl
+So the work is split:
 
-```bash
-powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
-```
+| Piece | Runs on | Why |
+|---|---|---|
+| The 30-minute sweep | GitHub Actions | Public repos get unlimited minutes. Nothing to keep awake. |
+| Sweep output | A `data` branch | Force-pushed, so the repo never accumulates history. |
+| Client + API | Vercel Hobby | Static site plus serverless functions, free. |
 
-Restart your terminal afterwards so `fly` is on PATH, then:
+Live careers-page discovery still needs outbound HTTP at request time, so
+`/api/job` stays a real function rather than being precomputed.
 
-```bash
-fly auth signup
-```
+## One-time setup
 
-Fly requires a card even on the free allowance. This shape (one always-on
-shared-cpu-1x/512MB machine plus a 1GB volume) runs at roughly **$3 to $4 a
-month**. Check current pricing before confirming.
+### 1. Vercel
 
-### Create the app
+Import the repo at [vercel.com/new](https://vercel.com/new), then:
 
-From the `server/` directory:
+- **Root Directory: the repo root**, not `client`. The functions in `/api`
+  import shared logic from `/server/src`, and Vercel cannot see outside the root
+  directory you choose. Everything else comes from `vercel.json`.
 
-```bash
-fly launch --no-deploy
-```
+Optional environment variables:
 
-Answer the prompts like this:
-
-| Prompt | Answer |
+| Variable | Purpose |
 |---|---|
-| `An existing fly.toml file was found... Would you like to use this fly.toml configuration?` | **y** |
-| `Would you like to tweak these settings before proceeding?` | **n** |
-| Postgres / Redis / Tigris storage | **n** to all |
+| `RAPIDAPI_KEY` | Enables JSearch (LinkedIn / Indeed / Glassdoor). |
+| `DATA_REPO` | Defaults to `Akius1/jobradar`. Set it if you fork. |
 
-The first one defaults to **N**, so pressing Enter rejects it. Type the `y`. If
-you let Fly generate a fresh config instead, it drops the volume mount,
-`auto_stop_machines = false` and the health check, and you end up with a server
-that never runs its cron and loses its data on every deploy.
+### 2. Kick off the first sweep
 
-If the name `jobradar-api` is taken (names are globally unique), pick another
-and remember it for step 2.
+The Action runs every 30 minutes, but the `data` branch does not exist until the
+first successful run, and the site returns 503 until it does. Trigger one by
+hand: **Actions → Sweep job sources → Run workflow**.
 
-### Create the volume BEFORE deploying
+It takes roughly two minutes. Afterwards you should have a `data` branch holding
+`list.json`, `jobs.json` and `companies.json`.
 
-This is the step that matters most. Without it the 30-day archive and the
-auto-discovered company registry are written to the container filesystem and
-wiped on every deploy, so discovery restarts from its seed list each time.
+If you want JSearch in CI too, add `RAPIDAPI_KEY` under
+**Settings → Secrets and variables → Actions**.
 
-```bash
-fly volumes create jobradar_data --size 1 --region lhr
-```
-
-The region must match `primary_region` in `fly.toml`.
-
-### Deploy
+## Checking it works
 
 ```bash
-fly deploy
+curl https://<your-app>.vercel.app/api/meta | head -c 400
 ```
 
-Fly builds remotely, so you do not need Docker running locally.
+Expect a live `lastRefresh` and `sourceStatus` for all 15 sources.
 
-### Verify
+## Why the data lives on a branch
+
+`jobs.json` is around 4MB. Committing that to `master` every 30 minutes would
+add roughly 190MB of git objects a day and make the repo unusable within weeks.
+The Action force-pushes a single commit to `data` instead, so the branch always
+holds exactly one revision and history never grows.
+
+The sweep restores the previous `jobs.json` before running, which is what lets
+the 30-day archive and the auto-discovered company registry keep accumulating.
+Skip that restore and every sweep starts from nothing, discovery stops
+compounding, and the archive never gets deeper than a single run.
+
+## Local development
+
+Two terminals, unchanged:
 
 ```bash
-fly logs
+cd server && npm install && npm start
 ```
-
-You want to see `JobRadar server listening`, then `Refreshing all sources…`, and
-about 90 seconds later `Refresh done in …` followed by the `Company registry:`
-line. Then:
 
 ```bash
-curl https://YOUR-APP.fly.dev/health
+cd client && npm install && npm run dev
 ```
 
-### Optional: LinkedIn and Indeed listings
+The dev server serves the same routes from `server/src/index.js`, sharing
+`query.js` with the serverless handlers so filtering cannot drift between them.
+
+To run a single sweep without starting the server:
 
 ```bash
-fly secrets set RAPIDAPI_KEY=your_key_here
+cd server && node src/sweep.js
 ```
-
-Setting a secret triggers a redeploy on its own.
-
----
-
-## 2. Client (Vercel)
-
-### Point it at your server
-
-Edit `client/vercel.json` and replace the destination host with your real Fly
-app URL:
-
-```json
-"destination": "https://YOUR-APP.fly.dev/api/:path*"
-```
-
-Commit and push that change.
-
-This is a rewrite rather than a direct call, which means the browser only ever
-talks to your Vercel domain. No CORS configuration, and no code change to the
-existing `/api` fetch calls.
-
-### Import the repo
-
-1. Go to [vercel.com/new](https://vercel.com/new) and import `Akius1/jobradar`
-2. Set **Root Directory** to `client` (this is the one setting that is easy to
-   miss and it fails the build if wrong)
-3. Leave the build command and output directory alone; `vercel.json` sets them
-4. Deploy
-
-Every push to `master` redeploys automatically from here on.
-
----
-
-## Notes
-
-**Hash routing means no SPA rewrite is needed.** Detail URLs look like
-`/#/job/<id>`, so the fragment never reaches the server and cannot 404.
-
-**Do not enable `auto_stop_machines`.** Sweeps run on a 30-minute cron. A
-machine that suspends when idle never refreshes, so you would only ever see data
-from whenever you last opened the page.
-
-**If the machine dies mid-sweep with no stack trace, that is OOM.** Raise memory
-in `fly.toml`:
-
-```bash
-fly scale memory 1024
-```
-
-**Watch the first few sweeps.** The company registry grows on its own, and each
-new company adds requests to the next sweep. If sweeps start approaching the
-180s timeout, lower the per-ATS caps in `server/src/discovery.js`.

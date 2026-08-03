@@ -94,6 +94,20 @@ const ATS_URL = {
 const NOT_EMPLOYER =
   /weworkremotely|linkedin|twitter|x\.com|facebook|youtube|calendly|notion\.so|google\.com|bit\.ly/i;
 
+/** The employer's own site as an origin, pulled from whatever the ad included. */
+export function employerOrigin(job) {
+  const site = (job.description || "")
+    .match(/https?:\/\/[^\s"<>)\]]+/gi)
+    ?.map((u) => u.replace(/[.,)]+$/, ""))
+    .find((u) => !NOT_EMPLOYER.test(u));
+  if (!site) return null;
+  try {
+    return new URL(site).origin;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Build an ordered list of ways to apply without paying, best first.
  *
@@ -101,8 +115,19 @@ const NOT_EMPLOYER =
  * @param boardMatch   {ats, token} if the company matches a known ATS board
  * @param freeAlt      the same role seen on a cheaper source, if any
  */
-export function resolveApplyRoutes(job, boardMatch, freeAlt) {
+export function resolveApplyRoutes(job, boardMatch, freeAlt, discovered) {
   const routes = [];
+
+  // A verified link to this exact posting on the employer's own site beats
+  // everything else: it is the actual application form for this role.
+  if (discovered?.kind === "exact-role") {
+    routes.push({
+      kind: "exact-role",
+      label: discovered.label,
+      hint: "Found by reading the company's own site. This is the application form for this specific role.",
+      url: discovered.url,
+    });
+  }
 
   if (boardMatch && ATS_URL[boardMatch.ats]) {
     routes.push({
@@ -130,28 +155,16 @@ export function resolveApplyRoutes(job, boardMatch, freeAlt) {
     });
   }
 
-  // The employer's own site, pulled from whatever the posting included.
-  const site = (job.description || "")
-    .match(/https?:\/\/[^\s"<>)\]]+/gi)
-    ?.map((u) => u.replace(/[.,)]+$/, ""))
-    .find((u) => !NOT_EMPLOYER.test(u));
-
-  if (site) {
-    const origin = (() => {
-      try {
-        return new URL(site).origin;
-      } catch {
-        return null;
-      }
-    })();
-    if (origin) {
-      routes.push({
-        kind: "careers-page",
-        label: "Company careers page",
-        hint: "Most employers list the same role here, usually at /careers or /jobs.",
-        url: `${origin}/careers`,
-      });
-    }
+  // Only ever a verified URL. The previous version guessed "/careers", which
+  // 404s on every employer using /jobs, /join-us or anything else, and sent
+  // people to a dead page while claiming it was where to apply.
+  if (discovered?.kind === "careers-index") {
+    routes.push({
+      kind: "careers-page",
+      label: discovered.label,
+      hint: "Verified live from the company's own site, not a guessed path.",
+      url: discovered.url,
+    });
   }
 
   // Always available, costs nothing, and usually lands the role in one click.
