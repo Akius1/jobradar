@@ -11,10 +11,15 @@ import {
 import { discoverApplyUrl, guessOrigin } from "../server/src/careers.js";
 
 // Serverless invocations are killed at the platform limit, so live discovery
-// gets its own budget. If the employer's site is slow we return the routes we
-// already have rather than letting the whole request die: a missing "apply
-// direct" link is a smaller loss than a broken detail page.
-const DISCOVERY_BUDGET_MS = 7000;
+// gets its own budget, set below the function maxDuration in vercel.json.
+//
+// Discovery fetches the employer's homepage and then verifies a candidate link,
+// two sequential requests, so this must comfortably exceed twice the
+// per-request timeout in careers.js. At 7s it was expiring on sites that
+// resolved fine locally, silently dropping the best route and leaving only a
+// search link. If it does expire we keep whatever routes we already have: a
+// missing "apply direct" link is a smaller loss than a broken detail page.
+const DISCOVERY_BUDGET_MS = 10000;
 
 const withDeadline = (promise, ms) =>
   Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);

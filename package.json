@@ -1,0 +1,16 @@
+{
+  "name": "jobradar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Aggregates software roles worldwide and grades each on whether you can apply from Africa",
+  "scripts": {
+    "build": "npm install --prefix client && npm run build --prefix client",
+    "sweep": "node server/src/sweep.js",
+    "dev:server": "npm start --prefix server",
+    "dev:client": "npm run dev --prefix client"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -13,7 +13,7 @@ import { titleSimilarity } from "./apply.js";
 const UA = { "User-Agent": "Mozilla/5.0 (compatible; JobRadar/1.0)" };
 // Kept under the serverless discovery budget so one slow host cannot
 // consume the entire request on its own.
-const TIMEOUT_MS = Number(process.env.CAREERS_TIMEOUT_MS) || 5000;
+const TIMEOUT_MS = Number(process.env.CAREERS_TIMEOUT_MS) || 3500;
 
 // Paths worth trying when a homepage yields nothing useful.
 const FALLBACK_PATHS = [
