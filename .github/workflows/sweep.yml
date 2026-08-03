@@ -58,11 +58,23 @@ jobs:
       - name: Publish data
         run: |
           cd server/data
+
+          # Vercel builds every branch it sees, and this one holds nothing but
+          # JSON. Without this it tries to build a site that isn't here and
+          # posts a failed deployment every half hour, forever. The config has
+          # to live on the branch itself, since that is the copy Vercel reads
+          # after cloning.
+          cat > vercel.json <<'JSON'
+          {
+            "git": { "deploymentEnabled": false }
+          }
+          JSON
+
           git init -q
           git config user.name "jobradar-bot"
           git config user.email "actions@github.com"
           git checkout -q -b data
-          git add jobs.json companies.json list.json
+          git add jobs.json companies.json list.json vercel.json
           git commit -q -m "data: sweep $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data
           echo "Published to the data branch"
