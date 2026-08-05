@@ -102,7 +102,13 @@ function JobList({ onOpen, filters }) {
       const res = await fetch(`/api/jobs?${params}`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
-      setJobs(data.jobs);
+      // The list is keyed on id, and React drops or doubles rows when two
+      // children share a key. The sweep collapses duplicate ids now, but data
+      // already published carries some, so guard here too.
+      const seen = new Set();
+      setJobs(
+        data.jobs.filter((j) => (seen.has(j.id) ? false : seen.add(j.id)))
+      );
       setMeta(data.meta);
     } catch (err) {
       setError(err.message);
@@ -126,12 +132,29 @@ function JobList({ onOpen, filters }) {
     }
   };
 
-  const sourceNames = useMemo(() => Object.keys(meta?.sources || {}).sort(), [meta]);
+  // The API only reports facets that have something in the current window. A
+  // selection that ages out would otherwise lose its chip while still filtering,
+  // leaving an empty list and no visible way to undo it. So anything selected
+  // stays on screen, at zero, until you turn it off yourself.
+  const roleChips = useMemo(() => {
+    const shown = meta?.roles || [];
+    const missing = roles.filter((key) => !shown.some((r) => r.key === key));
+    return [...shown, ...missing.map((key) => ({ key, label: roleLabel(key), count: 0 }))];
+  }, [meta, roles]);
+
+  const sourceChips = useMemo(() => {
+    const counts = meta?.sources || {};
+    return [...new Set([...Object.keys(counts), ...sources])]
+      .sort()
+      .map((key) => ({ key, count: counts[key] || 0 }));
+  }, [meta, sources]);
+
   const statuses = Object.values(meta?.sourceStatus || {});
   const liveSources = statuses.filter((s) => s.ok).length;
   const windowLabel =
     meta?.windows?.find((w) => w.key === within)?.label || "48 hours";
-  const activeCount = roles.length + eligibility.length + sources.length;
+  const activeCount =
+    roles.length + eligibility.length + sources.length + (q.trim() ? 1 : 0);
 
   return (
     <div className="app">
@@ -191,7 +214,7 @@ function JobList({ onOpen, filters }) {
             All roles
             <b>{meta?.total ?? 0}</b>
           </Chip>
-          {(meta?.roles || []).map((r) => (
+          {roleChips.map((r) => (
             <Chip
               key={r.key}
               active={roles.includes(r.key)}
@@ -223,19 +246,20 @@ function JobList({ onOpen, filters }) {
           ))}
         </FilterRow>
 
-        {sourceNames.length > 0 && (
+        {sourceChips.length > 0 && (
           <FilterRow label="Source">
             <Chip active={sources.length === 0} onClick={() => setSources([])}>
               All sources
+              <b>{meta?.total ?? 0}</b>
             </Chip>
-            {sourceNames.map((s) => (
+            {sourceChips.map((s) => (
               <Chip
-                key={s}
-                active={sources.includes(s)}
-                onClick={() => toggle(sources, setSources, s)}
+                key={s.key}
+                active={sources.includes(s.key)}
+                onClick={() => toggle(sources, setSources, s.key)}
               >
-                {s}
-                <b>{meta.sources[s]}</b>
+                {s.key}
+                <b>{s.count}</b>
               </Chip>
             ))}
           </FilterRow>
@@ -253,6 +277,7 @@ function JobList({ onOpen, filters }) {
                 setRoles([]);
                 setEligibility([]);
                 setSources([]);
+                setQ("");
               }}
             >
               Clear all
@@ -321,8 +346,8 @@ function JobList({ onOpen, filters }) {
 
                 {job.tags?.length > 0 && (
                   <div className="tags">
-                    {job.tags.map((t) => (
-                      <span key={t}>{t}</span>
+                    {job.tags.map((t, i) => (
+                      <span key={`${t}-${i}`}>{t}</span>
                     ))}
                   </div>
                 )}

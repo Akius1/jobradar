@@ -15,7 +15,7 @@ import { fetchWpFeeds } from "./sources/wpfeeds.js";
 import { fetchRecruitee } from "./sources/recruitee.js";
 import { processJob } from "./filter.js";
 import { mergeJobs } from "./store.js";
-import { harvestTokens, discoveryStats } from "./discovery.js";
+import { harvestTokens, discoveryStats, probeCompanies } from "./discovery.js";
 import { pooledMap } from "./pool.js";
 
 /**
@@ -48,15 +48,25 @@ const SOURCES = [
 // How many sources may be in flight at once.
 const SOURCE_CONCURRENCY = 5;
 
+// New company names to test against the ATS APIs per sweep. The backlog is
+// worked through a slice at a time so the first sweep after a deploy is not
+// dramatically slower than the rest; at 48 sweeps a day it drains quickly.
+const PROBE_BUDGET = 150;
+
 /**
  * The employer boards poll hundreds of companies and some payloads are large
  * (a single Lever board can exceed 5MB), so they need far more headroom than a
  * one-request feed. Sixty seconds is plenty for everything else.
  */
+// Raised alongside the discovery caps: these three now poll several times the
+// number of boards they used to, and the timeout rejects the source as a whole,
+// so overshooting it costs every posting rather than the slow board's. A full
+// sweep measures around two minutes against a fifteen-minute CI budget, so the
+// headroom is free.
 const TIMEOUTS = {
-  Greenhouse: 180_000,
-  Lever: 180_000,
-  Ashby: 180_000,
+  Greenhouse: 300_000,
+  Lever: 300_000,
+  Ashby: 300_000,
   Recruitee: 120_000,
   HackerNews: 120_000,
 };
@@ -84,6 +94,7 @@ async function doRefresh() {
   );
 
   const jobs = [];
+  const companyNames = [];
   settled.forEach((r, i) => {
     const name = SOURCES[i][0];
     const result = r.ok
@@ -93,6 +104,10 @@ async function doRefresh() {
       // Mine every posting for employer ATS links before filtering, so we learn
       // about companies even from roles we are not going to keep.
       harvestTokens(result.value);
+      // Names are collected from every posting, not just the ones we keep: a
+      // company whose only listed role is non-technical may still have a board
+      // full of engineering ones we would never otherwise learn about.
+      for (const j of result.value) if (j.company) companyNames.push(j.company);
       const processed = result.value.map(processJob).filter(Boolean);
       jobs.push(...processed);
       sourceStatus[name] = { ok: true, fetched: result.value.length, matched: processed.length };
@@ -104,6 +119,23 @@ async function doRefresh() {
   });
 
   const { added, total } = mergeJobs(jobs, sourceStatus);
+
+  // Runs after the sources, so anything found here is polled from the next
+  // sweep on. Deliberately last: it is the one step whose failure should not
+  // cost us a single posting we already have in hand.
+  try {
+    const probed = await probeCompanies(companyNames, PROBE_BUDGET, pooledMap);
+    if (Object.keys(probed).length) {
+      console.log(
+        `  New boards found by probing: ${Object.entries(probed)
+          .map(([k, v]) => `${k} +${v}`)
+          .join(", ")}`
+      );
+    }
+  } catch (err) {
+    console.warn(`  Board probing failed: ${err.message}`);
+  }
+
   const discovered = discoveryStats();
   console.log(`Refresh done in ${Date.now() - started}ms, ${added} new, ${total} live`);
   console.log(

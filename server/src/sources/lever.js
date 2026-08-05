@@ -4,8 +4,11 @@
 import { tokensFor, forgetToken } from "../discovery.js";
 import { pooledMap } from "../pool.js";
 
+// Verified against the live postings API before being added; discovery grows
+// the rest. See the note in ashby.js on why a seed is still needed at all.
 const SEED = [
   "palantir", "qonto", "contentsquare", "swordhealth", "younited", "ledger",
+  "toptal", "wealthfront", "tradeify", "anyscale",
 ];
 
 async function fetchCompany(token) {

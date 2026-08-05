@@ -48,13 +48,25 @@ export function applyFacets(jobs, query) {
 
   const q = query.q;
   if (q) {
-    const needle = String(q).toLowerCase();
-    jobs = jobs.filter(
-      (j) =>
-        j.title.toLowerCase().includes(needle) ||
-        j.company.toLowerCase().includes(needle) ||
-        (j.tags || []).some((t) => String(t).toLowerCase().includes(needle))
-    );
+    // Every word has to land somewhere, but not all in the same field and not in
+    // the order typed: "senior react" should still find "React Engineer, Senior".
+    // The discipline and location are searchable too, so "devops" finds a role
+    // titled "SRE" and "nigeria" finds one posted for Lagos.
+    const terms = String(q).toLowerCase().split(/\s+/).filter(Boolean);
+    jobs = jobs.filter((j) => {
+      const haystack = [
+        j.title,
+        j.company,
+        j.role,
+        ROLE_LABELS.find((r) => r.key === j.role)?.label,
+        j.locationText,
+        ...(j.tags || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return terms.every((t) => haystack.includes(t));
+    });
   }
 
   return jobs;
