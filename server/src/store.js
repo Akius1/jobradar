@@ -20,7 +20,11 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  * only re-scored when it is re-fetched. Mismatched files are discarded and the
  * next sweep rebuilds them.
  */
-const SCHEMA_VERSION = 2;
+// 3: rewrote eligibility scoring and the role taxonomy. Without the bump the
+// archive would keep serving verdicts from the old rules alongside the new
+// ones, so the same location could read "worth a shot" or "region-locked"
+// depending only on when it happened to be fetched.
+const SCHEMA_VERSION = 3;
 
 const empty = () => ({ version: SCHEMA_VERSION, jobs: [], lastRefresh: null, sourceStatus: {} });
 let state = empty();
@@ -94,7 +98,25 @@ export function mergeJobs(incoming, sourceStatus) {
 
     byKey.set(key, better ? { ...j, postedAt } : { ...existing, postedAt });
   }
-  state.jobs = [...byKey.values()];
+
+  // The key above is company+title, which does not imply a unique id: boards
+  // publish the same posting under slightly different company strings, so two
+  // records can survive the merge carrying the same id. The client keys the list
+  // on id, and React silently drops or doubles rows when keys collide. Collapse
+  // on id as well, keeping whichever copy is cheapest to apply through.
+  const byId = new Map();
+  for (const j of byKey.values()) {
+    const clash = byId.get(j.id);
+    if (!clash) {
+      byId.set(j.id, j);
+      continue;
+    }
+    const postedAt = Math.min(clash.postedAt, j.postedAt);
+    const better = friction(j.source) < friction(clash.source);
+    byId.set(j.id, better ? { ...j, postedAt } : { ...clash, postedAt });
+  }
+
+  state.jobs = [...byId.values()];
   state.lastRefresh = Date.now();
   state.sourceStatus = sourceStatus;
   persist();
