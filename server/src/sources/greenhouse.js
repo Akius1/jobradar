@@ -9,12 +9,20 @@
 import { tokensFor, forgetToken } from "../discovery.js";
 import { pooledMap } from "../pool.js";
 
+// Verified against the live board API before being added; discovery grows the
+// rest. See the note in ashby.js on why a seed is still needed at all.
 const SEED = [
   "stripe", "airbnb", "figma", "reddit", "coinbase", "robinhood", "discord",
   "flexport", "asana", "dropbox", "gitlab", "databricks", "affirm", "instacart",
   "grafanalabs", "mixpanel", "vercel", "brex", "postman", "amplitude", "scaleai",
   "mozilla", "twilio", "samsara", "duolingo", "trustpilot", "monzo", "n26",
   "cloudflare", "elastic", "canonical", "mongodb",
+  "datadog", "anthropic", "okta", "pinterest", "adyen", "fivetran", "block",
+  "remotecom", "lyft", "clickhouse", "gusto", "chime", "newrelic", "mercury",
+  "fastly", "neo4j", "snorkelai", "airtable", "algolia", "launchdarkly",
+  "betterment", "contentful", "gocardless", "turing", "cockroachlabs",
+  "honeycomb", "galileo", "truelayer", "planetscale", "watershed", "labelbox",
+  "circleci", "comet", "netlify",
 ];
 
 const MAX_DETAIL_FETCHES = 140; // cap per sweep across all companies

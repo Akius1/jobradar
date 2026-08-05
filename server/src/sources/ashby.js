@@ -4,9 +4,35 @@
 import { tokensFor, forgetToken } from "../discovery.js";
 import { pooledMap } from "../pool.js";
 
+// Every token here was confirmed against the live posting API before being
+// added. Discovery expands this set on its own; the seed exists for employers
+// that never appear in an aggregator feed at all, which is precisely the case
+// active probing cannot reach — nothing ever mentions them to probe from.
 const SEED = [
   "notion", "linear", "cursor", "ramp", "replit", "sardine", "resend", "neon",
+  "openai", "snowflake", "harvey", "sierra", "clickhouse", "cohere", "preply",
+  "plaid", "nubank", "langchain", "vanta", "clickup", "baseten", "supabase",
+  "temporal", "benchling", "sentry", "miro", "watershed", "render", "encord",
+  "modal", "confluent", "astronomer", "hex", "roboflow", "redis", "workos",
+  "column", "runpod", "oyster", "anyscale", "andela", "tradeify", "zapier",
+  "airbyte", "railway", "moderntreasury", "prefect", "stytch", "unit",
+  "neptune", "babbel", "buffer", "influxdata", "bunny",
 ];
+
+/**
+ * Ashby's posting API never names the company, so the board token is all we
+ * have. Tokens are slugs, and rendering them raw gave "Duck-duck-go" and
+ * "Runway-ml" in the UI. Split on the separators and title-case each word, but
+ * leave anything that is already a domain ("hive.co") alone.
+ */
+function companyFrom(token) {
+  if (/\.[a-z]{2,}$/i.test(token)) return token;
+  return token
+    .split(/[-_.]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 async function fetchCompany(token) {
   const res = await fetch(
@@ -26,7 +52,7 @@ async function fetchCompany(token) {
       id: `ashby-${token}-${j.id}`,
       source: "Ashby",
       title: j.title,
-      company: token.charAt(0).toUpperCase() + token.slice(1),
+      company: companyFrom(token),
       url: j.jobUrl || j.applyUrl,
       locationText: [j.location, j.isRemote ? "Remote" : null]
         .filter(Boolean)
