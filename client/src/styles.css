@@ -927,6 +927,115 @@ body::after {
 
 .foot code { color: var(--gold); font-size: 0.72rem; }
 
+/* ---------- Loading state ----------
+   Placeholders occupy the same box as the content they stand in for, so the
+   page does not jump when data lands. The shimmer carries a trace of the house
+   gold rather than plain white: it reads as the radar sweeping, which is the
+   thing that is actually happening. */
+
+.sk {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.06) 42%,
+    rgba(216, 184, 120, 0.13) 52%,
+    transparent
+  );
+  animation: sk-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes sk-sweep {
+  to { transform: translateX(100%); }
+}
+
+/* .frow aligns its label and chips on a shared baseline, and an empty span has
+   no text to make one from, so a skeleton row sat a few pixels taller than the
+   real row it stood in for. A zero-width space gives it the baseline a chip has. */
+.frow-chips .sk::before {
+  content: "\200b";
+  display: inline-block;
+  line-height: 29px;
+}
+
+/* The footer it stands in for is a line of 0.78rem text, whose line box is
+   taller than the bar itself. Pad it back out, or the reserved space is a few
+   pixels short and the list still shuffles when the count appears. */
+.console-foot .sk { margin: 2.85px 0; }
+
+/* Skeleton cards reuse .card, so they are the same height as the real thing. */
+.card-skeleton {
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--surface), var(--ink-2));
+}
+.card-skeleton .card-head { align-items: center; }
+.sk-meta { margin-top: 0.45rem; }
+
+/* Indeterminate bar along the top edge of the console, for refetches that are
+   too quick to justify tearing the filters down and rebuilding them. */
+.console { position: relative; }
+
+.console-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.console-progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 36%;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  animation: sk-bar 1.1s ease-in-out infinite;
+}
+
+@keyframes sk-bar {
+  0% { left: -36%; }
+  100% { left: 100%; }
+}
+
+/* A refetch keeps the previous results on screen and dims them, rather than
+   flashing an empty list between two nearly identical result sets. */
+.list { transition: opacity 0.18s ease; }
+.list.is-pending { opacity: 0.45; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk::after,
+  .console-progress::after { animation: none; }
+  .sk { background: rgba(255, 255, 255, 0.07); }
+  .console-progress::after { left: 0; width: 100%; opacity: 0.5; }
+  .list { transition: none; }
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 720px) {

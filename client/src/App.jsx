@@ -83,7 +83,12 @@ function JobList({ onOpen, filters }) {
   const [sources, setSources] = filters.sources;
   const [within, setWithin] = filters.within;
   const [q, setQ] = filters.q;
-  const [loading, setLoading] = useState(true);
+  // `pending` is any fetch in flight, including the quick ones after a chip
+  // toggle, where tearing the console down and rebuilding it would be far more
+  // disruptive than leaving the old results up for a moment. The first paint is
+  // a separate question, and it is answered by whether meta exists rather than
+  // by a flag, so the two cannot drift apart.
+  const [pending, setPending] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -113,11 +118,14 @@ function JobList({ onOpen, filters }) {
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setPending(false);
     }
   }, [roles, eligibility, sources, within, q]);
 
   useEffect(() => {
+    // Marked pending here rather than inside load(), so a chip lights up the
+    // progress bar the moment it is clicked instead of after the debounce.
+    setPending(true);
     const t = setTimeout(load, q ? 250 : 0); // debounce typing
     return () => clearTimeout(t);
   }, [load, q]);
@@ -156,6 +164,13 @@ function JobList({ onOpen, filters }) {
   const activeCount =
     roles.length + eligibility.length + sources.length + (q.trim() ? 1 : 0);
 
+  // Keyed on whether the data exists, not on whether a request is running. A
+  // failed first load ends with loading false and meta still null, and reading
+  // meta.windows there would take the whole page down; shimmering forever at a
+  // request that already came back is just as wrong.
+  const ready = Boolean(meta);
+  const showSkeleton = !ready && !error;
+
   return (
     <div className="app">
       <header className="hero">
@@ -183,16 +198,22 @@ function JobList({ onOpen, filters }) {
           <em> can you actually apply from here?</em>
         </p>
 
-        <div className="rail">
-          <Stat value={meta?.total ?? "-"} label={`In last ${windowLabel}`} accent />
-          <Stat value={meta?.eligibility?.eligible ?? "-"} label="Africa-friendly" />
-          <Stat value={meta?.eligibility?.relocation ?? "-"} label="Relocation" />
-          <Stat value={meta ? `${liveSources}/${statuses.length}` : "-"} label="Sources live" />
-          <Stat value={meta?.lastRefresh ? timeAgo(meta.lastRefresh) : "-"} label="Last sweep" />
+        <div className="rail" aria-busy={showSkeleton}>
+          <Stat value={meta?.total ?? "-"} label={`In last ${windowLabel}`} accent loading={showSkeleton} />
+          <Stat value={meta?.eligibility?.eligible ?? "-"} label="Africa-friendly" loading={showSkeleton} />
+          <Stat value={meta?.eligibility?.relocation ?? "-"} label="Relocation" loading={showSkeleton} />
+          <Stat value={ready ? `${liveSources}/${statuses.length}` : "-"} label="Sources live" loading={showSkeleton} />
+          <Stat
+            value={meta?.lastRefresh ? timeAgo(meta.lastRefresh) : "-"}
+            label="Last sweep"
+            loading={showSkeleton}
+          />
         </div>
       </header>
 
-      <section className="console">
+      <section className="console" aria-busy={pending}>
+        {pending && ready && <div className="console-progress" aria-hidden="true" />}
+
         <input
           className="search"
           placeholder="Search role, company, or stack…"
@@ -201,71 +222,107 @@ function JobList({ onOpen, filters }) {
         />
 
         <FilterRow label="Posted within">
-          {(meta?.windows || []).map((w) => (
-            <Chip key={w.key} active={within === w.key} onClick={() => setWithin(w.key)}>
-              {w.label}
-              <b>{w.count}</b>
-            </Chip>
-          ))}
+          {ready ? (
+            meta.windows.map((w) => (
+              <Chip key={w.key} active={within === w.key} onClick={() => setWithin(w.key)}>
+                {w.label}
+                <b>{w.count}</b>
+              </Chip>
+            ))
+          ) : showSkeleton ? (
+            <ChipSkeletons widths={SK_CHIPS.windows} />
+          ) : null}
         </FilterRow>
 
         <FilterRow label="Discipline">
-          <Chip active={roles.length === 0} onClick={() => setRoles([])}>
-            All roles
-            <b>{meta?.total ?? 0}</b>
-          </Chip>
-          {roleChips.map((r) => (
-            <Chip
-              key={r.key}
-              active={roles.includes(r.key)}
-              onClick={() => toggle(roles, setRoles, r.key)}
-            >
-              {r.label}
-              <b>{r.count}</b>
-            </Chip>
-          ))}
+          {ready ? (
+            <>
+              <Chip active={roles.length === 0} onClick={() => setRoles([])}>
+                All roles
+                <b>{meta.total}</b>
+              </Chip>
+              {roleChips.map((r) => (
+                <Chip
+                  key={r.key}
+                  active={roles.includes(r.key)}
+                  onClick={() => toggle(roles, setRoles, r.key)}
+                >
+                  {r.label}
+                  <b>{r.count}</b>
+                </Chip>
+              ))}
+            </>
+          ) : showSkeleton ? (
+            <ChipSkeletons widths={SK_CHIPS.roles} />
+          ) : null}
         </FilterRow>
 
         <FilterRow label="Eligibility">
-          <Chip active={eligibility.length === 0} onClick={() => setEligibility([])}>
-            Everywhere
-            <b>{meta?.total ?? 0}</b>
-          </Chip>
-          {ELIGIBILITY.map((e) => (
-            <Chip
-              key={e.key}
-              tone={e.tone}
-              title={e.note}
-              active={eligibility.includes(e.key)}
-              onClick={() => toggle(eligibility, setEligibility, e.key)}
-            >
-              <i className={`dot dot-${e.tone}`} />
-              {e.label}
-              <b>{meta?.eligibility?.[e.key] ?? 0}</b>
-            </Chip>
-          ))}
+          {ready ? (
+            <>
+              <Chip active={eligibility.length === 0} onClick={() => setEligibility([])}>
+                Everywhere
+                <b>{meta.total}</b>
+              </Chip>
+              {ELIGIBILITY.map((e) => (
+                <Chip
+                  key={e.key}
+                  tone={e.tone}
+                  title={e.note}
+                  active={eligibility.includes(e.key)}
+                  onClick={() => toggle(eligibility, setEligibility, e.key)}
+                >
+                  <i className={`dot dot-${e.tone}`} />
+                  {e.label}
+                  <b>{meta.eligibility?.[e.key] ?? 0}</b>
+                </Chip>
+              ))}
+            </>
+          ) : showSkeleton ? (
+            <ChipSkeletons widths={SK_CHIPS.eligibility} />
+          ) : null}
         </FilterRow>
 
-        {sourceChips.length > 0 && (
+        {/* Rendered while loading too, otherwise the row appears from nowhere
+            once data lands and shunts the whole list down the page. */}
+        {(showSkeleton || sourceChips.length > 0) && (
           <FilterRow label="Source">
-            <Chip active={sources.length === 0} onClick={() => setSources([])}>
-              All sources
-              <b>{meta?.total ?? 0}</b>
-            </Chip>
-            {sourceChips.map((s) => (
-              <Chip
-                key={s.key}
-                active={sources.includes(s.key)}
-                onClick={() => toggle(sources, setSources, s.key)}
-              >
-                {s.key}
-                <b>{s.count}</b>
-              </Chip>
-            ))}
+            {ready ? (
+              <>
+                <Chip active={sources.length === 0} onClick={() => setSources([])}>
+                  All sources
+                  <b>{meta.total}</b>
+                </Chip>
+                {sourceChips.map((s) => (
+                  <Chip
+                    key={s.key}
+                    active={sources.includes(s.key)}
+                    onClick={() => toggle(sources, setSources, s.key)}
+                  >
+                    {s.key}
+                    <b>{s.count}</b>
+                  </Chip>
+                ))}
+              </>
+            ) : (
+              <ChipSkeletons widths={SK_CHIPS.sources} />
+            )}
           </FilterRow>
         )}
 
-        {activeCount > 0 && (
+        {/* The default selection is non-empty, so this row is all but certain to
+            be there once data lands. Hold its space rather than letting it push
+            the list down on arrival. */}
+        {showSkeleton && activeCount > 0 && (
+          <div className="console-foot">
+            <Sk w={168} h={13} r={4} />
+          </div>
+        )}
+
+        {/* Gated on data, not just on having filters: the default selection is
+            non-empty, so on first paint this otherwise reads "0 roles matching
+            1 filter" before a single result has arrived. */}
+        {ready && activeCount > 0 && (
           <div className="console-foot">
             <span>
               {jobs.length} {jobs.length === 1 ? "role" : "roles"} matching{" "}
@@ -286,8 +343,17 @@ function JobList({ onOpen, filters }) {
         )}
       </section>
 
-      <main className="list">
-        {loading && <Empty>Sweeping the radar…</Empty>}
+      <main className={`list ${pending && ready ? "is-pending" : ""}`} aria-busy={pending}>
+        <p className="sr-only" role="status" aria-live="polite">
+          {showSkeleton
+            ? "Loading roles"
+            : pending
+              ? "Updating results"
+              : `${jobs.length} roles`}
+        </p>
+
+        {showSkeleton && Array.from({ length: 6 }, (_, i) => <CardSkeleton key={i} />)}
+
         {error && (
           <Empty>
             {error}.{" "}
@@ -296,7 +362,7 @@ function JobList({ onOpen, filters }) {
               : "The job data may still be publishing. Try again in a minute."}
           </Empty>
         )}
-        {!loading && !error && jobs.length === 0 && (
+        {ready && !error && jobs.length === 0 && (
           <Empty>
             Nothing matches these filters. Widen the time window, or add{" "}
             <em>Worth a shot</em> to your eligibility picks.
@@ -376,11 +442,62 @@ function JobList({ onOpen, filters }) {
   );
 }
 
-function Stat({ value, label, accent }) {
+function Stat({ value, label, accent, loading }) {
   return (
     <div className="stat">
-      <span className={`stat-value ${accent ? "stat-accent" : ""}`}>{value}</span>
+      {loading ? (
+        <Sk w={58} h={26} r={6} />
+      ) : (
+        <span className={`stat-value ${accent ? "stat-accent" : ""}`}>{value}</span>
+      )}
       <span className="stat-label">{label}</span>
+    </div>
+  );
+}
+
+/** One shimmering placeholder. Sized inline so a row of them can vary. */
+function Sk({ w, h, r = 6 }) {
+  return <span className="sk" style={{ width: w, height: h, borderRadius: r }} aria-hidden="true" />;
+}
+
+// Traced from a loaded board rather than picked by eye. Count and width both
+// matter: they decide how many lines a row wraps to, and a row that wraps to
+// one line while loading and two lines afterwards shoves the whole list down
+// the page at the exact moment you started reading it. Fixed, not random, so
+// the placeholders do not reflow between renders either.
+const SK_CHIPS = {
+  windows: [80, 82, 88, 96, 86, 90, 96],
+  roles: [95, 138, 72, 130, 86, 132, 92, 90, 88, 82, 88, 78, 126],
+  eligibility: [114, 144, 128, 118, 148],
+  sources: [110, 102, 78, 120, 110, 112, 100, 78, 68, 82, 90, 136],
+};
+
+function ChipSkeletons({ widths }) {
+  // 29.5 is the measured height of a real chip, not a round number chosen by
+  // eye. Rounding it to 29 left every row a pixel short and the list a dozen
+  // pixels high, which is exactly the jump these are here to prevent.
+  return widths.map((w, i) => <Sk key={i} w={w} h={29.5} r={8} />);
+}
+
+/** Stands in for a job card at exactly its height, so nothing shifts. */
+function CardSkeleton() {
+  return (
+    <div className="card card-skeleton" aria-hidden="true">
+      <div className="card-body">
+        <div className="card-head">
+          <Sk w="38%" h={17} r={5} />
+          <Sk w={34} h={11} r={4} />
+        </div>
+        <div className="sk-meta">
+          <Sk w="26%" h={12} r={4} />
+        </div>
+        <div className="badges">
+          <Sk w={102} h={23} r={6} />
+          <Sk w={70} h={23} r={6} />
+          <Sk w={82} h={23} r={6} />
+        </div>
+      </div>
+      <Sk w={68} h={13} r={4} />
     </div>
   );
 }
