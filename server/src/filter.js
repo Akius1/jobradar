@@ -344,6 +344,30 @@ export function scoreEligibility(locationText = "", descriptionText = "") {
  * brackets first, then strip tags, then decode everything else. Doing it in any
  * other order leaves markup visible in the UI.
  */
+/** Entity decoding, shared by the description cleaner and the title cleaner. */
+function decodeEntities(s) {
+  return s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&(quot|ldquo|rdquo);/gi, '"')
+    .replace(/&(apos|rsquo|lsquo);/gi, "'")
+    .replace(/&(mdash|ndash);/gi, "-")
+    .replace(/&amp;/gi, "&"); // last, so we don't re-decode our own output
+}
+
+/**
+ * Titles arrive escaped from the RSS-backed sources, so "Checkout &amp; Link"
+ * was rendering with the entity visible on the card. Decode, then strip any
+ * markup that survived, since a title is one line of plain text by definition.
+ */
+function cleanTitle(raw = "") {
+  return decodeEntities(String(raw).replace(/&lt;/gi, "<").replace(/&gt;/gi, ">"))
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function cleanDescription(raw = "") {
   let s = String(raw).replace(/&lt;/gi, "<").replace(/&gt;/gi, ">");
 
@@ -353,14 +377,7 @@ function cleanDescription(raw = "") {
     .replace(/<\/(p|div|h\d|ul|ol|tr|section)>/gi, "\n")
     .replace(/<[^>]+>/g, " ");
 
-  s = s
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&(quot|ldquo|rdquo);/gi, '"')
-    .replace(/&(apos|rsquo|lsquo);/gi, "'")
-    .replace(/&(mdash|ndash);/gi, "-")
-    .replace(/&amp;/gi, "&"); // last, so we don't re-decode our own output
+  s = decodeEntities(s);
 
   return s
     .replace(/[—–]/g, "-") // normalise scraped dashes to plain hyphens
@@ -392,19 +409,23 @@ function dedupeTags(tags = []) {
 
 /** Full pipeline for a raw normalized job → enriched job, or null if not relevant. */
 export function processJob(raw) {
-  const role = classifyRole(raw.title, raw.tags);
+  const title = cleanTitle(raw.title);
+  const role = classifyRole(title, raw.tags);
   if (!role) return null;
   const { eligibility, signals } = scoreEligibility(raw.locationText, raw.description);
   return {
     id: raw.id,
     source: raw.source,
-    title: raw.title.trim(),
-    company: (raw.company || "Unknown").trim(),
+    title,
+    company: cleanTitle(raw.company) || "Unknown",
     url: raw.url,
     locationText: (raw.locationText || "Remote").replace(/[—–]/g, "-").trim(),
     salary: raw.salary || null,
     tags: dedupeTags(raw.tags).slice(0, 6),
     postedAt: raw.postedAt,
+    // Only some sources publish a closing date; where they do, the store uses
+    // it to retire the role instead of holding it for the full 30 days.
+    expiresAt: Number.isFinite(raw.expiresAt) ? raw.expiresAt : null,
     role,
     eligibility,
     signals,

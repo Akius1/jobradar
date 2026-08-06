@@ -20,7 +20,7 @@ const SEED = [
   "datadog", "anthropic", "okta", "pinterest", "adyen", "fivetran", "block",
   "remotecom", "lyft", "clickhouse", "gusto", "chime", "newrelic", "mercury",
   "fastly", "neo4j", "snorkelai", "airtable", "algolia", "launchdarkly",
-  "betterment", "contentful", "gocardless", "turing", "cockroachlabs",
+  "betterment", "contentful", "gocardless", "cockroachlabs",
   "honeycomb", "galileo", "truelayer", "planetscale", "watershed", "labelbox",
   "circleci", "comet", "netlify",
 ];

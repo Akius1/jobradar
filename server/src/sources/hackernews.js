@@ -44,6 +44,23 @@ const LOCATION_RX =
   /\b(remote|onsite|on-site|hybrid|worldwide|anywhere|relocation|visa|[A-Z]{2,3}\b|USA|UK|EU)\b|,\s*[A-Z]/;
 const URL_RX = /https?:\/\//i;
 
+// A real location field is short. Posters who drop a pipe leave the entire ad
+// body in that slot, and LOCATION_RX matches "remote" four hundred characters
+// in, so whole paragraphs were reaching the UI as the location.
+const MAX_LOCATION = 60;
+
+function tidyLocation(raw) {
+  if (!raw) return null;
+  const s = raw.replace(/\s+/g, " ").trim();
+  if (s.length <= MAX_LOCATION) return s;
+
+  // Where a location does precede body copy it nearly always ends at a closing
+  // bracket or the first sentence break. Anything still long after that is
+  // prose, and "Not stated" is more honest than a paragraph.
+  const lead = s.split(/(?<=\))\s|\.\s|\s{2,}|•/)[0].trim();
+  return lead && lead.length <= MAX_LOCATION ? lead : null;
+}
+
 /** Split the header row into company, role, location and salary. */
 function classifyFields(parts) {
   const [company, ...rest] = parts;
@@ -59,7 +76,7 @@ function classifyFields(parts) {
   const salary = take(SALARY_RX, (p) => !ROLE_RX.test(p));
   take(URL_RX);
   const title = take(ROLE_RX);
-  const location = take(LOCATION_RX);
+  const location = tidyLocation(take(LOCATION_RX));
 
   return { company, title, location, salary };
 }

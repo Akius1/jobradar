@@ -1,36 +1,60 @@
 /* ============================================================
-   JobRadar, "Obsidian & Champagne"
-   One hero accent (champagne gold) on a deep obsidian ground.
-   Eligibility uses a desaturated jade/copper/crimson family so the
-   verdicts read as one system rather than three competing alarms.
+   JobRadar, "Editorial"
+
+   A warm off-white ground with a serif display face, so the board
+   reads as a publication rather than a dashboard. Colour is spent
+   almost entirely on the eligibility verdict: it is the one thing
+   here no other job site tells you, so it should be the one thing
+   that carries saturation on the page.
+
+   Every colour below is stated twice, once as hex for direct use
+   and once as bare RGB channels. The channel form is what lets a
+   tint, a border and a glow all derive from a single value instead
+   of hardcoding a dozen rgba() literals that drift apart.
    ============================================================ */
 
 :root {
   /* ground */
-  --ink: #07080b;
-  --ink-2: #0a0c11;
-  --surface: #0f1218;
-  --surface-hi: #141822;
-  --line: #1b202b;
-  --line-hi: #2b3342;
+  --ink: #fafaf8;
+  --ink-2: #f4f3ef;
+  --surface: #ffffff;
+  --surface-hi: #ffffff;
+  --line: #e8e6e1;
+  --line-hi: #d6d3cb;
 
-  /* type */
-  --text: #f3f5f9;
-  --text-2: #98a1b3;
-  --text-3: #666e80;
+  /* type: text-2 holds 6.2:1 on the ground, text-3 holds 4.6:1,
+     so muted copy still clears AA rather than only looking calm */
+  --text: #1a1a18;
+  --text-2: #57544d;
+  --text-3: #6d695f;
 
-  /* hero accent */
-  --gold: #d8b878;
-  --gold-hi: #f4dfb2;
-  --gold-deep: #a3854c;
+  /* hero accent, historically named --accent; ink blue reads as
+     considered rather than promotional next to the verdicts */
+  --accent: #1e40af;
+  --accent-hi: #1d4ed8;
+  --accent-deep: #172e6f;
+  --accent-rgb: 30 64 175;
 
-  /* verdict family, deliberately muted to sit beside the gold */
-  --jade: #5cba8d;
-  --copper: #cf8f5e;
-  --crimson: #c46370;
+  /* verdict family. Darkened from the usual web palette so each one
+     clears AA as text on white, which the lighter variants do not */
+  --jade: #047857;
+  --copper: #b45309;
+  --crimson: #be123c;
+  --jade-rgb: 4 120 87;
+  --copper-rgb: 180 83 9;
+  --crimson-rgb: 190 18 60;
 
-  --radius: 16px;
-  --radius-sm: 10px;
+  /* neutral tint for washes and hovers. On a dark ground these were
+     white overlays; on a light one they have to darken instead */
+  --tint-rgb: 26 26 24;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+
+  --shadow-sm: 0 1px 2px rgb(var(--tint-rgb) / 0.05),
+    0 1px 3px rgb(var(--tint-rgb) / 0.04);
+  --shadow-md: 0 2px 4px rgb(var(--tint-rgb) / 0.04),
+    0 8px 24px -12px rgb(var(--tint-rgb) / 0.14);
 
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-ui: "Inter", -apple-system, "Segoe UI Variable Text", "Segoe UI",
@@ -55,25 +79,17 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  /* warm aurora from the top, cooling into the page */
-  background-image: radial-gradient(
-      110% 60% at 50% -25%,
-      rgba(216, 184, 120, 0.13),
-      transparent 62%
-    ),
-    radial-gradient(70% 45% at 88% -5%, rgba(120, 148, 210, 0.07), transparent 60%);
+  /* A single cool wash behind the masthead, so the hero separates from
+     the list without needing a rule across the page. The dark build's
+     aurora and film grain are gone: both existed to stop large black
+     fields looking flat, and neither problem exists on paper. */
+  background-image: linear-gradient(
+    180deg,
+    rgb(var(--accent-rgb) / 0.035),
+    transparent 420px
+  );
+  background-repeat: no-repeat;
   background-attachment: fixed;
-}
-
-/* fine film grain, keeps the large dark fields from looking flat */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 100;
-  opacity: 0.032;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .app {
@@ -100,10 +116,10 @@ body::after {
 }
 
 .mark {
-  color: var(--gold);
+  color: var(--accent);
   display: grid;
   place-items: center;
-  filter: drop-shadow(0 0 14px rgba(216, 184, 120, 0.35));
+
 }
 
 .wordmark h1 {
@@ -111,7 +127,7 @@ body::after {
   font-size: 1.95rem;
   font-weight: 600;
   letter-spacing: -0.015em;
-  background: linear-gradient(96deg, var(--gold-hi) 8%, var(--gold) 48%, var(--gold-deep));
+  background: linear-gradient(96deg, var(--accent-hi) 8%, var(--accent) 48%, var(--accent-deep));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -122,8 +138,8 @@ body::after {
   align-items: center;
   gap: 0.5rem;
   background: transparent;
-  color: var(--gold-hi);
-  border: 1px solid rgba(216, 184, 120, 0.32);
+  color: var(--accent-hi);
+  border: 1px solid rgb(var(--accent-rgb) / 0.32);
   padding: 0.5rem 1.05rem;
   border-radius: 999px;
   font-family: inherit;
@@ -135,8 +151,8 @@ body::after {
 }
 
 .refresh:hover:not(:disabled) {
-  background: rgba(216, 184, 120, 0.09);
-  border-color: rgba(216, 184, 120, 0.55);
+  background: rgb(var(--accent-rgb) / 0.09);
+  border-color: rgb(var(--accent-rgb) / 0.55);
   transform: translateY(-1px);
 }
 
@@ -149,8 +165,8 @@ body::after {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 8px var(--gold);
+  background: var(--accent);
+
 }
 
 .refresh-dot.spinning {
@@ -204,7 +220,7 @@ body::after {
 }
 
 .stat-accent {
-  background: linear-gradient(100deg, var(--gold-hi), var(--gold-deep));
+  background: linear-gradient(100deg, var(--accent-hi), var(--accent-deep));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -221,13 +237,11 @@ body::after {
 
 .console {
   margin-top: 1.9rem;
-  background: linear-gradient(180deg, rgba(20, 24, 34, 0.72), rgba(15, 18, 24, 0.72));
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1.1rem 1.2rem 1.25rem;
-  backdrop-filter: blur(14px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
-    0 20px 50px -32px rgba(0, 0, 0, 0.95);
+  box-shadow: var(--shadow-md);
 }
 
 .search {
@@ -248,8 +262,8 @@ body::after {
 }
 
 .search:focus {
-  border-color: rgba(216, 184, 120, 0.5);
-  box-shadow: 0 0 0 3px rgba(216, 184, 120, 0.09);
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.09);
 }
 
 .frow {
@@ -279,7 +293,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
-  background: rgba(255, 255, 255, 0.022);
+  background: rgb(var(--tint-rgb) / 0.022);
   border: 1px solid var(--line);
   color: var(--text-2);
   padding: 0.34rem 0.72rem;
@@ -300,36 +314,36 @@ body::after {
 .chip:hover {
   color: var(--text);
   border-color: var(--line-hi);
-  background: rgba(255, 255, 255, 0.045);
+  background: rgb(var(--tint-rgb) / 0.045);
 }
 
 /* active states, neutral picks up the house gold, eligibility picks up its verdict colour */
 .chip-on.chip-neutral {
-  background: rgba(216, 184, 120, 0.1);
-  border-color: rgba(216, 184, 120, 0.45);
-  color: var(--gold-hi);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  color: var(--accent-hi);
 }
-.chip-on.chip-neutral b { color: var(--gold); }
+.chip-on.chip-neutral b { color: var(--accent); }
 
 .chip-on.chip-jade {
-  background: rgba(92, 186, 141, 0.1);
-  border-color: rgba(92, 186, 141, 0.45);
+  background: rgb(var(--jade-rgb) / 0.1);
+  border-color: rgb(var(--jade-rgb) / 0.45);
   color: var(--jade);
 }
 .chip-on.chip-copper {
-  background: rgba(207, 143, 94, 0.1);
-  border-color: rgba(207, 143, 94, 0.45);
+  background: rgb(var(--copper-rgb) / 0.1);
+  border-color: rgb(var(--copper-rgb) / 0.45);
   color: var(--copper);
 }
 .chip-on.chip-crimson {
-  background: rgba(196, 99, 112, 0.1);
-  border-color: rgba(196, 99, 112, 0.45);
+  background: rgb(var(--crimson-rgb) / 0.1);
+  border-color: rgb(var(--crimson-rgb) / 0.45);
   color: var(--crimson);
 }
 .chip-on.chip-gold {
-  background: rgba(216, 184, 120, 0.1);
-  border-color: rgba(216, 184, 120, 0.45);
-  color: var(--gold-hi);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  color: var(--accent-hi);
 }
 .chip-on b { color: currentColor; opacity: 0.72; }
 
@@ -359,7 +373,7 @@ body::after {
 .clear {
   background: none;
   border: none;
-  color: var(--gold);
+  color: var(--accent);
   font: inherit;
   font-size: 0.78rem;
   cursor: pointer;
@@ -373,10 +387,10 @@ body::after {
   border-radius: 50%;
   flex: none;
 }
-.dot-jade { background: var(--jade); box-shadow: 0 0 6px rgba(92, 186, 141, 0.75); }
-.dot-copper { background: var(--copper); box-shadow: 0 0 6px rgba(207, 143, 94, 0.75); }
-.dot-crimson { background: var(--crimson); box-shadow: 0 0 6px rgba(196, 99, 112, 0.75); }
-.dot-gold { background: var(--gold); box-shadow: 0 0 6px rgba(216, 184, 120, 0.75); }
+.dot-jade { background: var(--jade); box-shadow: 0 0 0 2px rgb(var(--jade-rgb) / 0.16); }
+.dot-copper { background: var(--copper); box-shadow: 0 0 0 2px rgb(var(--copper-rgb) / 0.16); }
+.dot-crimson { background: var(--crimson); box-shadow: 0 0 0 2px rgb(var(--crimson-rgb) / 0.16); }
+.dot-gold { background: var(--accent); box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.16); }
 
 /* ---------- Job cards ---------- */
 
@@ -393,14 +407,15 @@ body::after {
   align-items: center;
   justify-content: space-between;
   gap: 1.4rem;
-  background: linear-gradient(180deg, var(--surface), var(--ink-2));
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1.15rem 1.3rem;
+  padding: 1.15rem 1.3rem 1.15rem 1.45rem;
   text-decoration: none;
   color: inherit;
   overflow: hidden;
-  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 /* verdict hairline down the leading edge, revealed on hover */
@@ -410,9 +425,11 @@ body::after {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 2px;
+  /* The verdict edge is the one thing this board knows that the others do
+     not, so it reads at rest rather than only on hover. */
+  width: 3px;
   background: var(--edge, transparent);
-  opacity: 0;
+  opacity: 0.9;
   transition: opacity 0.2s;
 }
 .card.tone-jade { --edge: var(--jade); }
@@ -420,8 +437,8 @@ body::after {
 .card.tone-crimson { --edge: var(--crimson); }
 
 .card:hover {
-  background: linear-gradient(180deg, var(--surface-hi), var(--surface));
   border-color: var(--line-hi);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 .card:hover::before { opacity: 1; }
@@ -444,7 +461,7 @@ body::after {
 
 .age {
   font-size: 0.72rem;
-  color: var(--gold);
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
   white-space: nowrap;
@@ -458,7 +475,7 @@ body::after {
 
 .company { color: var(--text); font-weight: 500; }
 .sep { color: var(--text-3); margin: 0 0.4rem; }
-.salary { color: var(--gold); }
+.salary { color: var(--accent); }
 
 .badges {
   display: flex;
@@ -477,9 +494,9 @@ body::after {
   border-radius: 6px;
   border: 1px solid;
 }
-.verdict-jade { color: var(--jade); border-color: rgba(92, 186, 141, 0.3); background: rgba(92, 186, 141, 0.08); }
-.verdict-copper { color: var(--copper); border-color: rgba(207, 143, 94, 0.3); background: rgba(207, 143, 94, 0.08); }
-.verdict-crimson { color: var(--crimson); border-color: rgba(196, 99, 112, 0.3); background: rgba(196, 99, 112, 0.08); }
+.verdict-jade { color: var(--jade); border-color: rgb(var(--jade-rgb) / 0.3); background: rgb(var(--jade-rgb) / 0.08); }
+.verdict-copper { color: var(--copper); border-color: rgb(var(--copper-rgb) / 0.3); background: rgb(var(--copper-rgb) / 0.08); }
+.verdict-crimson { color: var(--crimson); border-color: rgb(var(--crimson-rgb) / 0.3); background: rgb(var(--crimson-rgb) / 0.08); }
 
 .pill {
   font-size: 0.7rem;
@@ -492,9 +509,9 @@ body::after {
 .pill-ghost { border-color: var(--line); color: var(--text-3); text-transform: none; }
 
 .pill-visa {
-  color: var(--gold);
-  border-color: rgba(216, 184, 120, 0.32);
-  background: rgba(216, 184, 120, 0.07);
+  color: var(--accent);
+  border-color: rgb(var(--accent-rgb) / 0.32);
+  background: rgb(var(--accent-rgb) / 0.07);
 }
 
 .tags {
@@ -507,13 +524,13 @@ body::after {
 .tags span {
   font-size: 0.68rem;
   color: var(--text-3);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgb(var(--tint-rgb) / 0.03);
   padding: 0.12rem 0.45rem;
   border-radius: 5px;
 }
 
 .cta {
-  color: var(--gold);
+  color: var(--accent);
   font-size: 0.82rem;
   font-weight: 500;
   white-space: nowrap;
@@ -544,7 +561,7 @@ body::after {
   padding: 0.3rem 0;
   transition: color 0.16s;
 }
-.back:hover { color: var(--gold); }
+.back:hover { color: var(--accent); }
 
 .detail-head {
   margin-top: 1.3rem;
@@ -563,7 +580,7 @@ body::after {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--edge, var(--gold));
+  background: var(--edge, var(--accent));
 }
 .detail-head.tone-jade { --edge: var(--jade); }
 .detail-head.tone-copper { --edge: var(--copper); }
@@ -605,8 +622,8 @@ body::after {
 .apply-btn {
   display: inline-flex;
   align-items: center;
-  background: linear-gradient(100deg, var(--gold-hi), var(--gold));
-  color: #17120a;
+  background: linear-gradient(100deg, var(--accent-hi), var(--accent));
+  color: #ffffff;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9rem;
@@ -614,12 +631,12 @@ body::after {
   padding: 0.62rem 1.3rem;
   border-radius: 9px;
   transition: transform 0.18s, box-shadow 0.18s;
-  box-shadow: 0 10px 26px -14px rgba(216, 184, 120, 0.9);
+  box-shadow: 0 10px 26px -14px rgb(var(--accent-rgb) / 0.9);
 }
 
 .apply-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 32px -12px rgba(216, 184, 120, 0.95);
+  box-shadow: 0 14px 32px -12px rgb(var(--accent-rgb) / 0.95);
 }
 
 .apply-note { font-size: 0.8rem; color: var(--text-3); }
@@ -662,7 +679,7 @@ body::after {
 
 .signals code {
   color: var(--text-2);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgb(var(--tint-rgb) / 0.04);
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 0.08rem 0.4rem;
@@ -694,7 +711,7 @@ body::after {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--accent);
   opacity: 0.75;
 }
 
@@ -708,9 +725,9 @@ body::after {
   width: 1.35rem;
   height: 1.35rem;
   border-radius: 6px;
-  background: rgba(216, 184, 120, 0.1);
-  border: 1px solid rgba(216, 184, 120, 0.28);
-  color: var(--gold);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border: 1px solid rgb(var(--accent-rgb) / 0.28);
+  color: var(--accent);
   font-size: 0.7rem;
   font-weight: 600;
   display: grid;
@@ -736,9 +753,9 @@ body::after {
 }
 
 .skill-key {
-  color: var(--gold-hi);
-  border-color: rgba(216, 184, 120, 0.42);
-  background: rgba(216, 184, 120, 0.09);
+  color: var(--accent-hi);
+  border-color: rgb(var(--accent-rgb) / 0.42);
+  background: rgb(var(--accent-rgb) / 0.09);
 }
 
 .skill-note {
@@ -761,17 +778,17 @@ body::after {
   flex-direction: column;
   gap: 0.1rem;
   text-decoration: none;
-  background: rgba(216, 184, 120, 0.08);
-  border: 1px solid rgba(216, 184, 120, 0.34);
+  background: rgb(var(--accent-rgb) / 0.08);
+  border: 1px solid rgb(var(--accent-rgb) / 0.34);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.8rem;
   transition: background 0.16s, border-color 0.16s;
 }
 .contact:hover {
-  background: rgba(216, 184, 120, 0.14);
-  border-color: rgba(216, 184, 120, 0.6);
+  background: rgb(var(--accent-rgb) / 0.14);
+  border-color: rgb(var(--accent-rgb) / 0.6);
 }
-.contact-email { color: var(--gold-hi); font-size: 0.85rem; font-weight: 500; }
+.contact-email { color: var(--accent-hi); font-size: 0.85rem; font-weight: 500; }
 .contact-kind {
   color: var(--text-3);
   font-size: 0.68rem;
@@ -791,7 +808,7 @@ body::after {
   flex-direction: column;
   gap: 0.2rem;
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.022);
+  background: rgb(var(--tint-rgb) / 0.022);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 0.65rem 0.85rem;
@@ -799,15 +816,15 @@ body::after {
 }
 .link-card:hover {
   border-color: var(--line-hi);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(var(--tint-rgb) / 0.05);
 }
 .link-label { color: var(--text); font-size: 0.85rem; font-weight: 500; }
 .link-hint { color: var(--text-3); font-size: 0.74rem; line-height: 1.45; }
 
 .pill-paywall {
   color: var(--crimson);
-  border-color: rgba(196, 99, 112, 0.34);
-  background: rgba(196, 99, 112, 0.08);
+  border-color: rgb(var(--crimson-rgb) / 0.34);
+  background: rgb(var(--crimson-rgb) / 0.08);
 }
 
 .apply-btn-muted {
@@ -819,8 +836,8 @@ body::after {
 .apply-btn-muted:hover { color: var(--text); box-shadow: none; }
 
 .link-card-best {
-  border-color: rgba(92, 186, 141, 0.42);
-  background: rgba(92, 186, 141, 0.07);
+  border-color: rgb(var(--jade-rgb) / 0.42);
+  background: rgb(var(--jade-rgb) / 0.07);
 }
 .link-card-best .link-label { color: var(--jade); }
 
@@ -831,7 +848,7 @@ body::after {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--jade);
-  border: 1px solid rgba(92, 186, 141, 0.4);
+  border: 1px solid rgb(var(--jade-rgb) / 0.4);
   border-radius: 4px;
   padding: 0.05rem 0.3rem;
 }
@@ -859,7 +876,7 @@ body::after {
 .source-link {
   display: inline-block;
   margin-top: 1rem;
-  color: var(--gold);
+  color: var(--accent);
   font-size: 0.84rem;
   text-decoration: none;
 }
@@ -875,7 +892,7 @@ body::after {
   gap: 0.16rem;
   align-items: flex-start;
   text-align: left;
-  background: rgba(255, 255, 255, 0.022);
+  background: rgb(var(--tint-rgb) / 0.022);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 0.7rem 0.9rem;
@@ -886,7 +903,7 @@ body::after {
 
 .related-item:hover {
   border-color: var(--line-hi);
-  background: rgba(255, 255, 255, 0.045);
+  background: rgb(var(--tint-rgb) / 0.045);
 }
 
 .related-title { color: var(--text); font-size: 0.88rem; font-weight: 500; }
@@ -910,7 +927,7 @@ body::after {
   line-height: 1.7;
 }
 
-.empty em { font-style: normal; color: var(--gold); }
+.empty em { font-style: normal; color: var(--accent); }
 
 .foot {
   margin-top: 3.2rem;
@@ -925,7 +942,116 @@ body::after {
   align-items: center;
 }
 
-.foot code { color: var(--gold); font-size: 0.72rem; }
+.foot code { color: var(--accent); font-size: 0.72rem; }
+
+/* ---------- Loading state ----------
+   Placeholders occupy the same box as the content they stand in for, so the
+   page does not jump when data lands. The shimmer carries a trace of the house
+   gold rather than plain white: it reads as the radar sweeping, which is the
+   thing that is actually happening. */
+
+.sk {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  border-radius: 6px;
+  background: rgb(var(--tint-rgb) / 0.045);
+}
+
+.sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--tint-rgb) / 0.06) 42%,
+    rgb(var(--accent-rgb) / 0.13) 52%,
+    transparent
+  );
+  animation: sk-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes sk-sweep {
+  to { transform: translateX(100%); }
+}
+
+/* .frow aligns its label and chips on a shared baseline, and an empty span has
+   no text to make one from, so a skeleton row sat a few pixels taller than the
+   real row it stood in for. A zero-width space gives it the baseline a chip has. */
+.frow-chips .sk::before {
+  content: "\200b";
+  display: inline-block;
+  line-height: 29px;
+}
+
+/* The footer it stands in for is a line of 0.78rem text, whose line box is
+   taller than the bar itself. Pad it back out, or the reserved space is a few
+   pixels short and the list still shuffles when the count appears. */
+.console-foot .sk { margin: 2.85px 0; }
+
+/* Skeleton cards reuse .card, so they are the same height as the real thing. */
+.card-skeleton {
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--surface), var(--ink-2));
+}
+.card-skeleton .card-head { align-items: center; }
+.sk-meta { margin-top: 0.45rem; }
+
+/* Indeterminate bar along the top edge of the console, for refetches that are
+   too quick to justify tearing the filters down and rebuilding them. */
+.console { position: relative; }
+
+.console-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.console-progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 36%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sk-bar 1.1s ease-in-out infinite;
+}
+
+@keyframes sk-bar {
+  0% { left: -36%; }
+  100% { left: 100%; }
+}
+
+/* A refetch keeps the previous results on screen and dims them, rather than
+   flashing an empty list between two nearly identical result sets. */
+.list { transition: opacity 0.18s ease; }
+.list.is-pending { opacity: 0.45; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk::after,
+  .console-progress::after { animation: none; }
+  .sk { background: rgb(var(--tint-rgb) / 0.07); }
+  .console-progress::after { left: 0; width: 100%; opacity: 0.5; }
+  .list { transition: none; }
+}
 
 /* ---------- Responsive ---------- */
 
