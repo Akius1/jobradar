@@ -13,6 +13,7 @@ import { fetchWorkingNomads } from "./sources/workingnomads.js";
 import { fetchLandingJobs } from "./sources/landingjobs.js";
 import { fetchWpFeeds } from "./sources/wpfeeds.js";
 import { fetchRecruitee } from "./sources/recruitee.js";
+import { fetchDelon } from "./sources/delon.js";
 import { processJob } from "./filter.js";
 import { mergeJobs } from "./store.js";
 import { harvestTokens, discoveryStats, probeCompanies } from "./discovery.js";
@@ -37,6 +38,8 @@ const SOURCES = [
   ["Himalayas", fetchHimalayas],
   ["Landing.jobs", fetchLandingJobs],
   ["HackerNews", fetchHackerNews],
+  // Nigerian board: small, but every posting on it is reachable from here.
+  ["DelonJobs", fetchDelon],
   // Direct-from-employer boards: roles land here before any aggregator sees
   // them, but each polls dozens to hundreds of companies.
   ["Recruitee", fetchRecruitee],
