@@ -30,6 +30,7 @@ export const SOURCE_FRICTION = {
   "Landing.jobs": 1,
   EURemoteJobs: 1,
   Jobspresso: 1,
+  DelonJobs: 1,
   NoDesk: 1,
   Programathor: 1,
   JSearch: 1,

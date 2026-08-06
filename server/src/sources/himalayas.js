@@ -9,9 +9,13 @@ const JUNK_COMPANY = /^(name|title|company|null|undefined|n\/a|-)?$/i;
 
 function normalize(j, i) {
   const company = String(j.companyName || "").trim();
-  // Both bounds present and non-zero, or we have no salary worth showing:
-  // "$0k-$0k" was reaching the UI as though it were a real range.
-  const hasSalary = j.minSalary > 0 && j.maxSalary > 0;
+
+  // Guard the rendered figures, not the raw ones. Checking the inputs were
+  // above zero still let "$0k-$0k" through, because some rows quote a salary
+  // in plain units rather than thousands and 400 rounds to 0k.
+  const min = Math.round((j.minSalary || 0) / 1000);
+  const max = Math.round((j.maxSalary || 0) / 1000);
+  const hasSalary = min > 0 && max > 0;
 
   return {
     id: `himalayas-${j.guid || i}`,
@@ -20,9 +24,7 @@ function normalize(j, i) {
     company: JUNK_COMPANY.test(company) ? "" : company,
     url: j.applicationLink || j.guid,
     locationText: (j.locationRestrictions || []).join(", ") || "Worldwide",
-    salary: hasSalary
-      ? `$${Math.round(j.minSalary / 1000)}k-$${Math.round(j.maxSalary / 1000)}k`
-      : null,
+    salary: hasSalary ? `$${min}k-$${max}k` : null,
     tags: j.categories || [],
     postedAt: (j.pubDate || 0) * 1000,
     // Himalayas is the one source that publishes a closing date. Carry it so
