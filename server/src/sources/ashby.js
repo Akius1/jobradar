@@ -14,7 +14,7 @@ const SEED = [
   "plaid", "nubank", "langchain", "vanta", "clickup", "baseten", "supabase",
   "temporal", "benchling", "sentry", "miro", "watershed", "render", "encord",
   "modal", "confluent", "astronomer", "hex", "roboflow", "redis", "workos",
-  "column", "runpod", "oyster", "anyscale", "andela", "tradeify", "zapier",
+  "column", "runpod", "oyster", "anyscale", "tradeify", "zapier",
   "airbyte", "railway", "moderntreasury", "prefect", "stytch", "unit",
   "neptune", "babbel", "buffer", "influxdata", "bunny",
 ];

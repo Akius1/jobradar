@@ -68,6 +68,27 @@ const PROBES = {
 
 const PROBE_TIMEOUT_MS = 8000;
 
+/**
+ * Talent marketplaces and staffing agencies run an ATS board exactly like an
+ * employer does, and the roles on it are real, but the company attached to each
+ * posting is the agency rather than whoever you would actually work for. One of
+ * these boards became the single largest "employer" in the corpus at 92
+ * postings, spread across Berlin, San Francisco and Vienna, several of them
+ * "Founding Engineer" at obviously different startups.
+ *
+ * Every posting on such a board is therefore misattributed by construction, and
+ * no amount of parsing fixes it, because the real employer is deliberately not
+ * published. Excluded from polling rather than shown under a name that is not
+ * the hiring company.
+ */
+const NOT_AN_EMPLOYER = new Set([
+  "clera", "lemonio", "lemon-io", "toptal", "andela", "turing", "crossover",
+  "x-team", "xteam", "gun-io", "gunio", "arc-dev", "arcdev", "remotemore",
+]);
+
+export const isEmployerBoard = (token) =>
+  !NOT_AN_EMPLOYER.has(String(token).toLowerCase().replace(/[^a-z0-9-]/g, ""));
+
 // Slugs already probed, kept so a name that resolved to nothing is never asked
 // about twice. Without this every sweep would re-probe the same few hundred
 // dead slugs forever, which is both slow and rude to the ATS.
@@ -183,6 +204,7 @@ export async function probeCompanies(names = [], budget = 150, mapper) {
   for (const name of names) {
     const slug = slugFor(name);
     if (slug.length < 3 || slug.length > 30) continue;
+    if (!isEmployerBoard(slug)) continue;
     if (checked.has(slug) || known.has(slug) || seen.has(slug)) continue;
     seen.add(slug);
     candidates.push(slug);
@@ -224,10 +246,10 @@ export async function probeCompanies(names = [], budget = 150, mapper) {
   return found;
 }
 
-/** Seed list plus everything discovered so far, deduped and capped. */
+/** Seed list plus everything discovered so far, deduped, filtered and capped. */
 export function tokensFor(ats, seed = []) {
   const merged = [...new Set([...seed, ...(registry[ats] || [])])];
-  return merged.slice(0, CAPS[ats] || 100);
+  return merged.filter(isEmployerBoard).slice(0, CAPS[ats] || 100);
 }
 
 /**

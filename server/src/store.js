@@ -15,6 +15,23 @@ const DATA_FILE = path.join(DATA_DIR, "jobs.json");
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * Sources that hand back their complete current set on every sweep, so a role
+ * that stops appearing has been filled or withdrawn rather than merely paged
+ * out of view. For these, and only these, absence is evidence and the record
+ * is dropped.
+ *
+ * The archive otherwise keeps a job for a month on the strength of its posting
+ * date alone, which meant a filled role stayed on the board for weeks. That is
+ * the worst kind of inaccuracy here: it costs someone an application.
+ *
+ * Everything else is a rolling feed of the newest N postings, where falling out
+ * of the response means nothing at all. Greenhouse belongs in that group
+ * despite being an employer board, because we cap detail fetches per sweep and
+ * so never see its full set either.
+ */
+const AUTHORITATIVE = new Set(["Ashby", "Lever"]);
+
+/**
  * Bump whenever the shape or scoring of a stored job changes. Records written
  * by an older build keep their old verdicts forever otherwise, since a job is
  * only re-scored when it is re-fetched. Mismatched files are discarded and the
@@ -24,7 +41,10 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 // archive would keep serving verdicts from the old rules alongside the new
 // ones, so the same location could read "worth a shot" or "region-locked"
 // depending only on when it happened to be fetched.
-const SCHEMA_VERSION = 3;
+// 4: titles are entity-decoded, junk company names rejected, and records carry
+// expiresAt. Stored rows predate all three, so they would keep showing
+// "Checkout &amp; Link" and never retire on their closing date.
+const SCHEMA_VERSION = 4;
 
 const empty = () => ({ version: SCHEMA_VERSION, jobs: [], lastRefresh: null, sourceStatus: {} });
 let state = empty();
@@ -55,9 +75,12 @@ export function getState() {
   return state;
 }
 
+/** A posting the source has told us is over, whatever its posting date says. */
+const isExpired = (j, now = Date.now()) => Boolean(j.expiresAt) && j.expiresAt < now;
+
 export function getJobs() {
   const cutoff = Date.now() - MAX_AGE_MS;
-  return state.jobs.filter((j) => j.postedAt >= cutoff);
+  return state.jobs.filter((j) => j.postedAt >= cutoff && !isExpired(j));
 }
 
 /**
@@ -70,17 +93,39 @@ export function getJobs() {
  * silently removes most of the paywall problem.
  */
 export function mergeJobs(incoming, sourceStatus) {
-  const cutoff = Date.now() - MAX_AGE_MS;
+  const now = Date.now();
+  const cutoff = now - MAX_AGE_MS;
   const byKey = new Map();
   const keyOf = (j) => `${j.company}::${j.title}`.toLowerCase();
 
+  // Which authoritative sources reported a complete set this sweep, and every
+  // id they returned. A source that failed is skipped: an outage would
+  // otherwise read as "every one of its roles closed at once" and wipe it from
+  // the board.
+  const liveIds = new Map();
+  for (const source of AUTHORITATIVE) {
+    if (sourceStatus?.[source]?.ok) liveIds.set(source, new Set());
+  }
+  for (const j of incoming) liveIds.get(j.source)?.add(j.id);
+
+  let closed = 0;
   for (const j of state.jobs) {
-    if (j.postedAt >= cutoff) byKey.set(keyOf(j), j);
+    if (j.postedAt < cutoff) continue;
+    if (isExpired(j, now)) {
+      closed++;
+      continue;
+    }
+    const live = liveIds.get(j.source);
+    if (live && !live.has(j.id)) {
+      closed++; // gone from a board we just read in full
+      continue;
+    }
+    byKey.set(keyOf(j), j);
   }
   let added = 0;
   let upgraded = 0;
   for (const j of incoming) {
-    if (j.postedAt < cutoff) continue;
+    if (j.postedAt < cutoff || isExpired(j, now)) continue;
     const key = keyOf(j);
     const existing = byKey.get(key);
 
@@ -117,8 +162,8 @@ export function mergeJobs(incoming, sourceStatus) {
   }
 
   state.jobs = [...byId.values()];
-  state.lastRefresh = Date.now();
+  state.lastRefresh = now;
   state.sourceStatus = sourceStatus;
   persist();
-  return { added, upgraded, total: state.jobs.length };
+  return { added, upgraded, closed, total: state.jobs.length };
 }

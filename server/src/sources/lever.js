@@ -8,7 +8,7 @@ import { pooledMap } from "../pool.js";
 // the rest. See the note in ashby.js on why a seed is still needed at all.
 const SEED = [
   "palantir", "qonto", "contentsquare", "swordhealth", "younited", "ledger",
-  "toptal", "wealthfront", "tradeify", "anyscale",
+  "wealthfront", "tradeify", "anyscale",
 ];
 
 async function fetchCompany(token) {
