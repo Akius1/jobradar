@@ -28,6 +28,7 @@ const PATTERNS = {
   ashby: /jobs\.ashbyhq\.com\/([a-z0-9._-]{2,40})/gi,
   workable: /(?:apply\.workable\.com|([a-z0-9-]{2,40})\.workable\.com)\/(?:j\/)?([a-z0-9-]{2,40})?/gi,
   recruitee: /([a-z0-9-]{2,40})\.recruitee\.com/gi,
+  bamboohr: /([a-z0-9-]{2,40})\.bamboohr\.com/gi,
 };
 
 // Words that appear in these URL positions but are not company tokens.
@@ -38,7 +39,7 @@ const NOT_A_TOKEN = new Set([
 ]);
 
 // Hard ceilings so a runaway feed cannot make each sweep take forever.
-const CAPS = { greenhouse: 350, lever: 200, ashby: 300, workable: 150, recruitee: 150 };
+const CAPS = { greenhouse: 350, lever: 200, ashby: 300, workable: 150, recruitee: 150, bamboohr: 200 };
 
 // ---- Active discovery ----
 //
@@ -63,6 +64,13 @@ const PROBES = {
   lever: {
     url: (t) => `https://api.lever.co/v0/postings/${t}?mode=json`,
     hasPostings: (d) => Array.isArray(d) && d.length > 0,
+  },
+  bamboohr: {
+    // A tenant that does not exist answers 200 with BambooHR's own marketing
+    // page rather than a 404, so parsing as JSON is itself the existence check:
+    // HTML throws, which probeOne already treats as "no board".
+    url: (t) => `https://${t}.bamboohr.com/careers/list`,
+    hasPostings: (d) => (d.result || []).length > 0,
   },
 };
 
@@ -120,6 +128,7 @@ function emptyRegistry() {
     ashby: [],
     workable: [],
     recruitee: [],
+    bamboohr: [],
     checked: [],
     updatedAt: null,
   };
@@ -273,7 +282,7 @@ export function findBoardIn(reg, companyName = "") {
   const key = String(companyName).toLowerCase().replace(/[^a-z0-9]/g, "");
   if (key.length < 3 || !reg) return null;
 
-  for (const ats of ["greenhouse", "lever", "ashby", "recruitee", "workable"]) {
+  for (const ats of ["greenhouse", "lever", "ashby", "recruitee", "workable", "bamboohr"]) {
     for (const token of reg[ats] || []) {
       if (String(token).toLowerCase().replace(/[^a-z0-9]/g, "") === key) {
         return { ats, token };
@@ -291,6 +300,7 @@ export function discoveryStats() {
     ashby: registry.ashby.length,
     workable: registry.workable.length,
     recruitee: registry.recruitee.length,
+    bamboohr: registry.bamboohr.length,
     probed: (registry.checked || []).length,
     updatedAt: registry.updatedAt,
   };
