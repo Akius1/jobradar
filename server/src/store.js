@@ -44,7 +44,9 @@ const AUTHORITATIVE = new Set(["Ashby", "Lever"]);
 // 4: titles are entity-decoded, junk company names rejected, and records carry
 // expiresAt. Stored rows predate all three, so they would keep showing
 // "Checkout &amp; Link" and never retire on their closing date.
-const SCHEMA_VERSION = 4;
+// 5: taxonomy widened from software-only to every profession, so stored rows
+// carry role keys that no longer mean the same thing.
+const SCHEMA_VERSION = 5;
 
 const empty = () => ({ version: SCHEMA_VERSION, jobs: [], lastRefresh: null, sourceStatus: {} });
 let state = empty();

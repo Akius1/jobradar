@@ -73,7 +73,7 @@ export const ROLES = [
   {
     key: "devops",
     label: "DevOps / Cloud",
-    rx: /\b(devops|sre|site reliability|platform engineer|platform infrastructure|infrastructure engineer|cloud (engineer|architect|infrastructure)|kubernetes|systems? engineer|network engineer|solutions? architect|linux (engineer|administrator)|sysadmin|system(s)? administrator|dev ?ex|developer (experience|productivity)|build engineer|release engineer|observability)\b/i,
+    rx: /\b(devops|sre|site reliability|platform engineer|platform infrastructure|infrastructure engineer|cloud (engineer|architect|infrastructure)|kubernetes|systems? engineer|network engineer|solutions? architect|linux (engineer|administrator)|sysadmin|(cloud|system|systems|network|database|linux|windows|server) administrator|dev ?ex|developer (experience|productivity)|build engineer|release engineer|observability)\b/i,
   },
   {
     key: "qa",
@@ -106,6 +106,113 @@ export const ROLES = [
   },
 ];
 
+/**
+ * Non-engineering professional families.
+ *
+ * These titles used to be discarded outright: the board was software-only, so
+ * anything else was noise. Roughly sixty per cent of every sweep was thrown
+ * away on that basis, close to five thousand postings a run, which is far too
+ * much to bin once the board covers more than engineering.
+ *
+ * They are matched only after the software taxonomy has had its turn, so a
+ * "Marketing Data Engineer" is still Data rather than Marketing, and ordering
+ * within this list runs most-specific to most-general on the same principle.
+ */
+const PROFESSIONAL = [
+  {
+    key: "product",
+    label: "Product",
+    rx: /\b(product (manager|owner|lead|director|analyst)|head of product|\bcpo\b|product marketing|program manager|project manager|scrum master|delivery manager|business analyst|technical program)\b/i,
+  },
+  {
+    key: "design",
+    label: "Design",
+    rx: /\b(product designer|ux (designer|researcher|writer)|ui designer|graphic designer|visual designer|illustrator|motion designer|brand designer|creative director|art director|design lead)\b/i,
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    rx: /\b(marketing|growth (manager|lead|marketer)|seo|content (writer|strategist|marketer|manager)|copywriter|social media|community manager|brand manager|communications|public relations|\bpr manager\b|demand generation|lifecycle marketing)\b/i,
+  },
+  {
+    key: "sales",
+    label: "Sales & Success",
+    rx: /\b(sales|account (executive|manager|director)|business development|\bbdr\b|\bsdr\b|customer (success|support|service|experience)|partnerships|revenue|solutions? (consultant|engineer)|pre[\s-]?sales|technical account manager|call cent(er|re)|contact cent(er|re)|telesales|telemarket|customer care|client (services|relations))\b/i,
+  },
+  {
+    key: "finance",
+    label: "Finance",
+    rx: /\b(accountant|accounting|accounts (payable|receivable)|bookkeep|payroll|auditor|audit|financial (analyst|controller)|controller|treasury|\bcfo\b|tax |invoicing|billing|fp&a|actuar)\b/i,
+  },
+  {
+    key: "legal",
+    label: "Legal",
+    rx: /\b(legal|lawyer|attorney|counsel|paralegal|compliance|regulatory|contracts manager|privacy officer|governance, risk)\b/i,
+  },
+  {
+    key: "people",
+    label: "People & HR",
+    rx: /\b(recruit|talent (acquisition|partner|manager)|human resources|\bhr\b|people (operations|partner|manager)|hiring manager|onboarding specialist|learning and development|compensation and benefits)\b/i,
+  },
+  {
+    key: "operations",
+    label: "Operations",
+    rx: /\b(operations|\bops\b|supply chain|logistics|procurement|warehouse|inventory|office manager|executive assistant|virtual assistant|administrative|facilities|general manager|chief of staff|production (manager|supervisor|lead|planner)|quality (control|controller|inspector)|inventory control)\b/i,
+  },
+  {
+    key: "writing",
+    label: "Writing & Media",
+    rx: /\b(technical writer|documentation|editor|journalist|translator|transcription|video (editor|producer)|producer|content (coordinator|reviewer)|moderator|rater|annotat)\b/i,
+  },
+  {
+    key: "healthcare",
+    label: "Healthcare",
+    rx: /\b(nurse|physician|doctor|dentist|pharmac(y|ist)|therapist|clinical|medical|veterinar|caregiver|health(care)? (assistant|coordinator))\b/i,
+  },
+  {
+    key: "education",
+    label: "Education",
+    rx: /\b(teacher|tutor|lecturer|professor|instructor|curriculum|academic|trainer|education)\b/i,
+  },
+  {
+    key: "trades",
+    label: "Skilled Trades",
+    rx: /\b(welder|technician|electrician|plumber|mechanic|machinist|operator|driver|installer|maintenance|fitter|fabricat|rigger|surveyor|foreman|artisan)\b/i,
+  },
+  {
+    key: "engineering-other",
+    label: "Engineering (non-software)",
+    // Civil, mechanical, chemical and the rest. Real engineering, just not the
+    // kind this board was originally built for, so it gets its own bucket
+    // rather than being mixed into the software families.
+    // Allows a qualifier between discipline and noun, so "Mechanical Design
+    // Engineer" lands here rather than falling through to the general bucket.
+    rx: /\b(civil|mechanical|electrical|chemical|structural|petroleum|mining|industrial|aerospace|marine|geotechnical|process|production|quality)(\s+[a-z]+){0,2}\s+engineer(ing)?\b/i,
+  },
+];
+
+/**
+ * Top-level groups for the category selector. The taxonomy is deliberately
+ * finer-grained than this: someone browsing wants five or six choices, but
+ * someone filtering inside software wants all fourteen.
+ */
+export const CATEGORIES = [
+  {
+    key: "software",
+    label: "Software & Data",
+    roles: ["ai-ml", "data", "security", "blockchain", "game", "embedded", "mobile",
+            "devops", "qa", "fullstack", "frontend", "backend", "leadership", "engineering"],
+  },
+  { key: "product", label: "Product & Design", roles: ["product", "design"] },
+  { key: "commercial", label: "Marketing & Sales", roles: ["marketing", "sales"] },
+  { key: "business", label: "Business & Finance", roles: ["finance", "legal", "people", "operations"] },
+  { key: "other", label: "Other Professions", roles: ["writing", "healthcare", "education", "trades", "engineering-other", "general"] },
+];
+
+/** Reverse lookup: role key → the category it belongs to. */
+export const categoryOf = (roleKey) =>
+  CATEGORIES.find((c) => c.roles.includes(roleKey))?.key || "other";
+
 // Titles too generic to place on their own, we inspect tags instead.
 // Includes Portuguese and Spanish equivalents so Brazilian and wider LatAm
 // postings are not silently discarded as non-technical.
@@ -129,15 +236,23 @@ const TAG_HINTS = [
  * Falls back to tag inspection for generic titles like "Software Engineer".
  */
 export function classifyRole(title, tags = []) {
-  if (!title) return null;
-  if (NON_TECH_RX.test(title) || ADJACENT_RX.test(title)) return null;
-  if (NON_SOFTWARE_ENG_RX.test(title)) return null;
+  if (!title || title.trim().length < 2) return null;
 
-  for (const { key, rx } of ROLES) {
-    if (rx.test(title)) return key;
+  // These three guards no longer discard anything; they only decide whether a
+  // title is eligible for the *software* taxonomy. Without them "Mechanical
+  // Design Engineer" reaches the Frontend rule on "design engineer", and
+  // "Sales Engineer" reaches Backend. Once they match, classification carries
+  // on into the professional families below rather than stopping.
+  const isSoftwareCandidate =
+    !NON_TECH_RX.test(title) && !ADJACENT_RX.test(title) && !NON_SOFTWARE_ENG_RX.test(title);
+
+  if (isSoftwareCandidate) {
+    for (const { key, rx } of ROLES) {
+      if (rx.test(title)) return key;
+    }
   }
 
-  if (GENERIC_RX.test(title)) {
+  if (isSoftwareCandidate && GENERIC_RX.test(title)) {
     const normalized = tags.map((t) => String(t).toLowerCase().replace(/[-_]/g, " ").trim());
     // Single-word hints are compared token by token, never as substrings:
     // "Email" contains "ai" and "HTML" contains "ml", which used to file
@@ -166,13 +281,22 @@ export function classifyRole(title, tags = []) {
     return "engineering"; // genuinely general software role
   }
 
-  return null;
+  for (const { key, rx } of PROFESSIONAL) {
+    if (rx.test(title)) return key;
+  }
+
+  // A real posting we could not place. It keeps its own bucket rather than
+  // being dropped: an unrecognised title is a gap in the taxonomy, not
+  // evidence that the job does not exist.
+  return "general";
 }
 
 /** Role list including the generic bucket, for UI rendering. */
 export const ROLE_LABELS = [
   ...ROLES.map(({ key, label }) => ({ key, label })),
   { key: "engineering", label: "General Software" },
+  ...PROFESSIONAL.map(({ key, label }) => ({ key, label })),
+  { key: "general", label: "General" },
 ];
 
 // ---- Africa eligibility ----

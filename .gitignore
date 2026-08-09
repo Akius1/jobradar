@@ -3,3 +3,5 @@ data/
 dist/
 .env
 .env.local
+server/.env.local
+client/.env.local
