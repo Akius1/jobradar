@@ -254,7 +254,7 @@ export default function JobDetail({ id, onBack, onOpen }) {
         <Panel label="Similar live roles">
           <div className="related">
             {related.map((r) => (
-              <button key={r.id} className="related-item" onClick={() => onOpen(r.id)}>
+              <button key={r.id} className="related-item" onClick={() => onOpen(r.id, r.title)}>
                 <span className="related-title">{r.title}</span>
                 <span className="related-meta">
                   {r.company} · {timeAgo(r.postedAt)} ago

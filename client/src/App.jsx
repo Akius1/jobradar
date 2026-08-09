@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import JobDetail from "./JobDetail.jsx";
+import Auth from "./Auth.jsx";
+import { authConfigured, getSession, onAuthChange } from "./supabase.js";
 import { VERDICT, timeAgo, roleLabel } from "./shared.js";
 
 // Eligibility is its own filter axis. Relocation sits alongside the three
@@ -47,8 +49,43 @@ function useRoute() {
   return jobId;
 }
 
+/**
+ * Session state, shared by the list and the detail screen.
+ *
+ * Held once at the top rather than fetched per screen: the OAuth redirect
+ * lands back on whichever route the user left from, and two components racing
+ * to read the same session produced a visible flash of the signed-out state.
+ */
+function useSession() {
+  const [session, setSession] = useState(null);
+  const [checked, setChecked] = useState(!authConfigured);
+
+  useEffect(() => {
+    if (!authConfigured) return;
+    let alive = true;
+    getSession().then((s) => {
+      if (!alive) return;
+      setSession(s);
+      setChecked(true);
+    });
+    const off = onAuthChange((s) => alive && setSession(s));
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+
+  return { session, checked };
+}
+
 export default function App() {
   const jobId = useRoute();
+  const { session, checked } = useSession();
+
+  // The role someone tried to open before signing in. Kept so they land back
+  // on it afterwards instead of on an empty board, which is the most annoying
+  // possible outcome of being asked to sign in.
+  const [gateFor, setGateFor] = useState(null);
   // Filter state lives here so it survives a trip into a role and back.
   const filters = {
     roles: useState([]),
@@ -57,22 +94,52 @@ export default function App() {
     within: useState("48h"),
     q: useState(""),
   };
-  const open = (id) => {
+  const go = (id) => {
     window.location.hash = `#/job/${encodeURIComponent(id)}`;
   };
 
-  if (jobId) {
-    return (
-      <JobDetail
-        id={jobId}
-        onBack={() => {
-          window.location.hash = "";
-        }}
-        onOpen={open}
-      />
-    );
-  }
-  return <JobList onOpen={open} filters={filters} />;
+  /**
+   * Opening a role is where the gate sits, not the front door. The list stays
+   * readable by anyone; signing in is asked for at the point we would start
+   * holding a resume, which is the first moment it buys the user anything.
+   */
+  const open = (id, title) => {
+    if (authConfigured && checked && !session) {
+      setGateFor({ id, title });
+      return;
+    }
+    go(id);
+  };
+
+  const screen = jobId ? (
+    <JobDetail
+      id={jobId}
+      session={session}
+      onBack={() => {
+        window.location.hash = "";
+      }}
+      onOpen={open}
+    />
+  ) : (
+    <JobList onOpen={open} filters={filters} session={session} />
+  );
+
+  return (
+    <>
+      {screen}
+      {gateFor && (
+        <Auth
+          jobTitle={gateFor.title}
+          onClose={() => setGateFor(null)}
+          onSignedIn={() => {
+            const { id } = gateFor;
+            setGateFor(null);
+            go(id);
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 function JobList({ onOpen, filters }) {
@@ -375,7 +442,7 @@ function JobList({ onOpen, filters }) {
             <button
               className={`card tone-${v.tone}`}
               key={job.id}
-              onClick={() => onOpen(job.id)}
+              onClick={() => onOpen(job.id, job.title)}
             >
               <div className="card-body">
                 <div className="card-head">
