@@ -5,7 +5,7 @@
 // filesystem: callers pass the jobs in, which is what makes it usable in a
 // serverless handler that loads its data over the network.
 
-import { ROLE_LABELS } from "./filter.js";
+import { ROLE_LABELS, CATEGORIES, categoryOf } from "./filter.js";
 
 /** Selectable freshness windows, in hours. */
 export const WINDOWS = [
