@@ -19,6 +19,7 @@ export const SOURCE_FRICTION = {
   Lever: 0,
   Ashby: 0,
   Recruitee: 0,
+  BambooHR: 0,
   // Free aggregators that link out to the employer.
   HackerNews: 1,
   Remotive: 1,

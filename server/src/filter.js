@@ -394,6 +394,25 @@ function cleanDescription(raw = "") {
  * drop or double rows in the list. Strip them here, at the point the record is
  * built, rather than papering over it in the view.
  */
+/**
+ * Some boards list every country a role is open in, which runs to 200-plus
+ * characters and swamps the card. Summarise for display only.
+ *
+ * Safe to shorten because scoring has already run against the full string by
+ * the time this is called, and it must stay that way: one of these lists is
+ * eligible solely because Egypt appears nineteen countries in.
+ */
+function tidyLocation(text) {
+  const s = String(text).trim();
+  if (s.length <= 90) return s;
+
+  const parts = s.split(/\s*,\s*/).filter(Boolean);
+  if (parts.length > 4) {
+    return `${parts.slice(0, 3).join(", ")} +${parts.length - 3} more`;
+  }
+  return `${s.slice(0, 87).trimEnd()}…`;
+}
+
 function dedupeTags(tags = []) {
   const seen = new Set();
   const out = [];
@@ -419,7 +438,7 @@ export function processJob(raw) {
     title,
     company: cleanTitle(raw.company) || "Unknown",
     url: raw.url,
-    locationText: (raw.locationText || "Remote").replace(/[—–]/g, "-").trim(),
+    locationText: tidyLocation((raw.locationText || "Remote").replace(/[—–]/g, "-")),
     salary: raw.salary || null,
     tags: dedupeTags(raw.tags).slice(0, 6),
     postedAt: raw.postedAt,

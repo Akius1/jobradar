@@ -14,6 +14,7 @@ import { fetchLandingJobs } from "./sources/landingjobs.js";
 import { fetchWpFeeds } from "./sources/wpfeeds.js";
 import { fetchRecruitee } from "./sources/recruitee.js";
 import { fetchDelon } from "./sources/delon.js";
+import { fetchBambooHR } from "./sources/bamboohr.js";
 import { processJob } from "./filter.js";
 import { mergeJobs } from "./store.js";
 import { harvestTokens, discoveryStats, probeCompanies } from "./discovery.js";
@@ -43,6 +44,7 @@ const SOURCES = [
   // Direct-from-employer boards: roles land here before any aggregator sees
   // them, but each polls dozens to hundreds of companies.
   ["Recruitee", fetchRecruitee],
+  ["BambooHR", fetchBambooHR],
   ["Greenhouse", fetchGreenhouse],
   ["Lever", fetchLever],
   ["Ashby", fetchAshby],
