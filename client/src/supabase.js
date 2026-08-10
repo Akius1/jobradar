@@ -66,6 +66,36 @@ export const signInWithEmail = (email, password) =>
   client().auth.signInWithPassword({ email, password });
 
 /**
+ * Which social providers the project actually has switched on.
+ *
+ * signInWithOAuth redirects the moment it is called and does not resolve with
+ * an error for a provider that is disabled, so the user lands on a Supabase
+ * error page having lost the role they were reading. Asking first costs one
+ * small request and keeps the failure inside our own UI. The answer is cached
+ * because it cannot change while the tab is open.
+ */
+let providerCache = null;
+export async function enabledProviders() {
+  if (!supabase) return [];
+  if (providerCache) return providerCache;
+  try {
+    const res = await fetch(`${url}/auth/v1/settings`, {
+      headers: { apikey: key },
+    });
+    if (!res.ok) return [];
+    const s = await res.json();
+    providerCache = Object.entries(s.external || {})
+      .filter(([, on]) => on)
+      .map(([name]) => name);
+    return providerCache;
+  } catch {
+    // A network failure here should not block sign-in: fall through and let
+    // the redirect try, which is no worse than the behaviour without this.
+    return [];
+  }
+}
+
+/**
  * Returns the user to whatever they were looking at. Someone who clicked a
  * role, signed in and landed back on an empty board would have to find it
  * again, which is the most annoying possible outcome of asking them to sign in.
