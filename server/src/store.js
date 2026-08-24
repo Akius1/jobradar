@@ -3,13 +3,28 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { friction } from "./apply.js";
+import { SHARD_COUNT, bucketOf, shardName } from "./shard.js";
 
 // Configurable so a deployment can point it at a mounted volume. Without a
 // persistent path the 30-day archive resets on every restart.
 const DATA_DIR =
   process.env.DATA_DIR ||
   path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
-const DATA_FILE = path.join(DATA_DIR, "jobs.json");
+// The archive is written as one file per shard rather than a single jobs.json.
+// See shard.js for why. state.json carries everything about the sweep that is
+// not a job record.
+const SHARD_DIR = path.join(DATA_DIR, "jobs");
+const STATE_FILE = path.join(DATA_DIR, "state.json");
+const LEGACY_FILE = path.join(DATA_DIR, "jobs.json");
+
+const shardPath = (i) => path.join(SHARD_DIR, `${shardName(i)}.json`);
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null; // absent or half-written; the caller decides what that means
+  }
+};
 
 // Retain a month; the UI narrows to 2h/6h/12h/24h/2d/1w/1m at query time.
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -51,26 +66,53 @@ const SCHEMA_VERSION = 5;
 const empty = () => ({ version: SCHEMA_VERSION, jobs: [], lastRefresh: null, sourceStatus: {} });
 let state = empty();
 
+const stale = (version) => {
+  if (version === SCHEMA_VERSION) return false;
+  console.log(`Store schema ${version ?? "none"} != ${SCHEMA_VERSION}, discarding cache.`);
+  return true;
+};
+
 function load() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    if (parsed.version !== SCHEMA_VERSION) {
-      console.log(
-        `Store schema ${parsed.version ?? "none"} != ${SCHEMA_VERSION}, discarding cache.`
-      );
-      return;
+  const meta = readJson(STATE_FILE);
+  if (meta) {
+    if (stale(meta.version)) return;
+    const jobs = [];
+    for (let i = 0; i < SHARD_COUNT; i++) {
+      const shard = readJson(shardPath(i));
+      if (shard) jobs.push(...shard);
     }
-    state = parsed;
-  } catch {
-    /* first run, keep defaults */
+    state = { ...meta, jobs };
+    return;
   }
+
+  // Sweeps predating the split wrote the whole archive to one jobs.json. Read
+  // it once so the running month of history survives the change; persist()
+  // removes it, and nothing looks here again.
+  const legacy = readJson(LEGACY_FILE);
+  if (!legacy || stale(legacy.version)) return;
+  console.log(`Migrating ${legacy.jobs?.length ?? 0} jobs from the unsharded archive.`);
+  state = legacy;
 }
 load();
 
 function persist() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(SHARD_DIR, { recursive: true });
   state.version = SCHEMA_VERSION;
-  fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2));
+
+  const shards = Array.from({ length: SHARD_COUNT }, () => []);
+  for (const j of state.jobs) shards[bucketOf(j.id)].push(j);
+
+  // Empty shards are written too. A shard that empties out would otherwise keep
+  // serving the previous sweep's records, since the data branch is rebuilt from
+  // whatever files are on disk.
+  shards.forEach((records, i) => fs.writeFileSync(shardPath(i), JSON.stringify(records)));
+
+  // Everything about the sweep that is not a record. Same shape as empty().
+  const { version, lastRefresh, sourceStatus } = state;
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ version, lastRefresh, sourceStatus }));
+
+  // Leave no copy of the file whose size broke publishing in the first place.
+  fs.rmSync(LEGACY_FILE, { force: true });
 }
 
 export function getState() {

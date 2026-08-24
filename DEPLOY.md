@@ -45,7 +45,8 @@ first successful run, and the site returns 503 until it does. Trigger one by
 hand: **Actions → Sweep job sources → Run workflow**.
 
 It takes roughly two minutes. Afterwards you should have a `data` branch holding
-`list.json`, `jobs.json` and `companies.json`.
+`list.json`, `state.json`, `companies.json` and a `jobs/` directory of archive
+shards.
 
 If you want JSearch in CI too, add `RAPIDAPI_KEY` under
 **Settings → Secrets and variables → Actions**.
@@ -60,12 +61,12 @@ Expect a live `lastRefresh` and `sourceStatus` for all 15 sources.
 
 ## Why the data lives on a branch
 
-`jobs.json` is around 4MB. Committing that to `master` every 30 minutes would
-add roughly 190MB of git objects a day and make the repo unusable within weeks.
+The archive runs to around 100MB. Committing that to `master` every 30 minutes
+would add gigabytes of git objects a day and make the repo unusable within days.
 The Action force-pushes a single commit to `data` instead, so the branch always
 holds exactly one revision and history never grows.
 
-The sweep restores the previous `jobs.json` before running, which is what lets
+The sweep restores the previous archive before running, which is what lets
 the 30-day archive and the auto-discovered company registry keep accumulating.
 Skip that restore and every sweep starts from nothing, discovery stops
 compounding, and the archive never gets deeper than a single run.
