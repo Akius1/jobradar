@@ -67,7 +67,7 @@ cd client && npm install && npm run dev
 ```
 
 Then open http://localhost:5173. The server sweeps all sources on boot and every
-30 minutes after (`node-cron`), and stores results in `server/data/jobs.json`.
+30 minutes after (`node-cron`), and stores results under `server/data/`.
 
 ### Optional: LinkedIn / Indeed / Glassdoor
 

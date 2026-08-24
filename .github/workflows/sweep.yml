@@ -39,9 +39,11 @@ jobs:
         run: |
           mkdir -p server/data
           if git fetch origin data --depth=1 2>/dev/null; then
-            git show origin/data:jobs.json > server/data/jobs.json 2>/dev/null || true
-            git show origin/data:companies.json > server/data/companies.json 2>/dev/null || true
-            echo "Restored $(du -h server/data/jobs.json 2>/dev/null | cut -f1) of previous data"
+            # Take the branch as it stands rather than naming each file. The
+            # archive is a directory of shards now, and naming files here is how
+            # a layout change turns into a sweep that silently starts empty.
+            git archive FETCH_HEAD | tar -x -C server/data
+            echo "Restored $(du -sh server/data | cut -f1) of previous data"
           else
             echo "No data branch yet, starting fresh"
           fi
@@ -52,9 +54,9 @@ jobs:
           RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }} # optional, enables JSearch
         run: node src/sweep.js
 
-      # Force-push a single commit rather than appending history. jobs.json is
-      # around 4MB, so 48 sweeps a day would otherwise add ~190MB of git objects
-      # daily and the clone would become unusable within weeks.
+      # Force-push a single commit rather than appending history. The archive
+      # runs to ~100MB, so 48 sweeps a day would otherwise add gigabytes of git
+      # objects daily and the clone would become unusable within days.
       - name: Publish data
         run: |
           cd server/data
@@ -70,11 +72,24 @@ jobs:
           }
           JSON
 
+          # GitHub rejects any file over 100MB. The archive used to be a single
+          # jobs.json and reached 99.9MB, so for weeks a sweep published or was
+          # rejected depending on how many roles happened to be live that half
+          # hour. It is sharded now, and this is the tripwire: fail with the
+          # offending file named rather than a bare exit code from git push.
+          if find . -type f -size +90M | grep -q .; then
+            echo "Refusing to publish: a file is near GitHub's 100MB limit."
+            find . -type f -size +90M -exec ls -lh {} +
+            exit 1
+          fi
+
           git init -q
           git config user.name "jobradar-bot"
           git config user.email "actions@github.com"
           git checkout -q -b data
-          git add jobs.json companies.json list.json vercel.json
+          # Everything the sweep wrote, whatever it is called. Listing files by
+          # name meant one missing file failed the step on a pathspec error.
+          git add -A
           git commit -q -m "data: sweep $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data
           echo "Published to the data branch"

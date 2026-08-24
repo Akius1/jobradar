@@ -6,7 +6,8 @@
 //
 // Emits two files because they have very different read patterns:
 //   list.json  slim, no descriptions, read on every list request
-//   jobs.json  full records, only needed when someone opens a single role
+//   jobs/<xx>.json  full records, sharded by id, one shard read when someone
+//                   opens a single role
 
 import fs from "node:fs";
 import path from "node:path";
@@ -55,7 +56,21 @@ async function main() {
     `Sweep finished in ${Math.round((Date.now() - started) / 1000)}s: ` +
       `${result.added} new, ${result.total} live`
   );
-  console.log(`  list.json ${sizeOf("list.json")} | jobs.json ${sizeOf("jobs.json")}`);
+  // The largest shard is the number that matters: GitHub rejects any single
+  // file over 100MB, and an unsharded archive had grown to 99.9MB.
+  const archive = () => {
+    try {
+      const dir = path.join(DATA_DIR, "jobs");
+      const sizes = fs.readdirSync(dir).map((f) => fs.statSync(path.join(dir, f)).size);
+      const kb = (n) => Math.round(n / 1024) + "KB";
+      const total = sizes.reduce((a, b) => a + b, 0);
+      return `${sizes.length} shards, ${kb(total)} total, largest ${kb(Math.max(...sizes))}`;
+    } catch {
+      return "missing";
+    }
+  };
+
+  console.log(`  list.json ${sizeOf("list.json")} | archive ${archive()}`);
 
   const failed = Object.entries(state.sourceStatus || {}).filter(([, s]) => !s.ok);
   if (failed.length) {

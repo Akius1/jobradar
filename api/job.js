@@ -1,4 +1,4 @@
-import { loadFull, loadCompanies, setCacheHeaders } from "./_data.js";
+import { loadJob, loadList, loadCompanies, setCacheHeaders } from "./_data.js";
 import { buildPrep } from "../server/src/prep.js";
 import { findBoardIn } from "../server/src/discovery.js";
 import {
@@ -26,13 +26,16 @@ const withDeadline = (promise, ms) =>
 
 export default async function handler(req, res) {
   try {
-    const data = await loadFull();
-    const jobs = data.jobs || [];
-    const job = jobs.find((j) => j.id === req.query.id);
+    const job = await loadJob(req.query.id);
 
     if (!job) {
       return res.status(404).json({ error: "This role has aged out of the archive." });
     }
+
+    // Related roles and a cheaper copy of this one are both picked by fields the
+    // slim list already carries, so this reads list.json rather than pulling
+    // every shard of the archive to get at descriptions nothing here renders.
+    const jobs = (await loadList()).jobs || [];
 
     const related = jobs
       .filter((j) => j.id !== job.id && j.role === job.role && j.eligibility === job.eligibility)
